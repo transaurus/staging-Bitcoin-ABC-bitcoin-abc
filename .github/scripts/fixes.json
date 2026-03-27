@@ -1,0 +1,10 @@
+{
+  "description": "Repository-specific fixes for Bitcoin-ABC/bitcoin-abc (web/chronik.e.cash)",
+  "fixes": {},
+  "newFiles": {
+    "web/chronik.e.cash/.abclatestversion": {
+      "content": "0.0.0",
+      "comment": "Required by docs/0-chronik-setup/00-download.mdx via raw-loader. The actual version file is not committed (it's in .gitignore). Using 0.0.0 as a build stub."
+    }
+  }
+}
