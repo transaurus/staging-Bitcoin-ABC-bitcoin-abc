@@ -1,0 +1,10 @@
+{
+  "sourceUrl": "https://github.com/Bitcoin-ABC/bitcoin-abc",
+  "branch": "master",
+  "docusaurusRoot": "web/chronik.e.cash",
+  "configFile": "web/chronik.e.cash/docusaurus.config.js",
+  "translateCommand": "pnpm docusaurus write-translations",
+  "buildCommand": "pnpm build",
+  "buildOutput": "build",
+  "packageManager": "pnpm"
+}
