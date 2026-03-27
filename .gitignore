@@ -1,0 +1,111 @@
+abc-ci-builds
+
+*.tar.gz
+
+*.exe
+src/bitcoin
+src/bitcoind
+src/bitcoin-cli
+src/bitcoin-seeder
+src/bitcoin-tx
+src/bitcoin-chainstate
+src/bitcoin-wallet
+src/test/test_bitcoin
+src/test/test_bitcoin_fuzzy
+src/qt/test/test_bitcoin-qt
+
+src/obj
+
+src/qt/*.moc
+src/qt/moc_*.cpp
+src/qt/forms/ui_*.h
+
+src/qt/test/moc*.cpp
+
+src/qt/bitcoin-qt.config
+src/qt/bitcoin-qt.creator
+src/qt/bitcoin-qt.creator.user
+src/qt/bitcoin-qt.files
+src/qt/bitcoin-qt.includes
+
+.deps
+.libs
+.*.swp
+*.*~*
+*.bak
+*.rej
+*.orig
+*.pyc
+*.o
+*.o-*
+*.a
+*.pb.cc
+*.pb.h
+
+*.log
+*.trs
+*.zip
+
+*.json.h
+*.raw.h
+
+# Only ignore unexpected patches
+*.patch
+!depends/patches/**/*.patch
+!contrib/guix/**/*.patch
+
+# Compilation and Qt preprocessor part
+*.qm
+Makefile
+bitcoin-qt
+Bitcoin-Qt.app
+
+# Resources cpp
+qrc_*.cpp
+
+# Mac specific
+.DS_Store
+
+#lcov
+*.gcno
+*.gcda
+/*.info
+
+#build tests
+test/config.ini
+test/cache/*
+*.mypy_cache/
+
+!src/leveldb*/Makefile
+
+contrib/devtools/split-debug.sh
+
+# JS artifacts at every level
+node_modules/
+.next/
+.docusaurus/
+.nyc_output/
+test-results.xml
+test_results/
+
+# compiled WebAssembly
+modules/ecash-lib/src/ffi/
+
+# Ignore secrets for JS/TS apps that use secret keys, e.g. databases or telegram bots
+secrets.js
+secrets.ts
+
+# Local Netlify folder
+.netlify
+
+# arc liberate cache file
+.phutil_module_cache
+
+# GUIX
+/output/
+/var/
+/distsrc-*/
+web/e.cash/public/rss.xml
+
+# Cargo builds
+target/

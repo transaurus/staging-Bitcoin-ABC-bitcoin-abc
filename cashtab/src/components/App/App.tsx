@@ -1,0 +1,560 @@
+// Copyright (c) 2024 The Bitcoin developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+import React, { useState, useContext, useEffect, useRef } from 'react';
+import { Tooltip } from 'react-tooltip';
+import {
+    HomeIcon,
+    SendIcon,
+    ReceiveIcon,
+    SettingsIcon,
+    AirdropIcon,
+    BankIcon,
+    WalletIcon,
+    ContactsIcon,
+    ThemedSignAndVerifyMsg,
+    TokensIcon,
+    RewardIcon,
+    NftIcon,
+    DogeIcon,
+} from 'components/Common/CustomIcons';
+import Spinner from 'components/Common/Spinner';
+import { ThemeProvider } from 'styled-components';
+import { theme } from 'assets/styles/theme';
+import Home from 'components/Home/Home';
+import Receive from 'components/Receive/Receive';
+import CreateToken from 'components/Etokens/CreateToken';
+import SendXec from 'components/Send/SendXec';
+import Token from 'components/Etokens/Token';
+import Airdrop from 'components/Airdrop';
+import BackupWallet from 'components/BackupWallet/BackupWallet';
+import Contacts from 'components/Contacts';
+import Wallets from 'components/Wallets';
+import Etokens from 'components/Etokens/Etokens';
+import Configure from 'components/Configure/Configure';
+import SignVerifyMsg from 'components/SignVerifyMsg/SignVerifyMsg';
+import Rewards from 'components/Rewards';
+import NotFound from 'components/App/NotFound';
+import OnBoarding from 'components/OnBoarding';
+import Nfts from 'components/Nfts';
+import Agora from 'components/Agora';
+import { LoadingCtn } from 'components/Common/Atoms';
+import Cashtab from 'assets/cashtab_xec.png';
+import './App.css';
+import { WalletContext, isWalletContextLoaded } from 'wallet/context';
+import { Route, Routes, useLocation, useNavigate } from 'react-router';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+// Easter egg imports not used in extension/src/components/App.js
+import TabCash from 'assets/tabcash.png';
+import { hasEnoughToken } from 'wallet';
+import { parseAddressInput } from 'validation';
+import { paybuttonDeepLinkToBip21Uri } from 'paybutton';
+import ServiceWorkerWrapper from 'components/Common/ServiceWorkerWrapper';
+import WebApp from 'components/AppModes/WebApp';
+import Extension from 'components/AppModes/Extension';
+import Header from 'components/Header';
+import { Bounce, ToastContainer } from 'react-toastify';
+import PullToRefresh from 'components/Common/PullToRefresh';
+import {
+    ExtensionFrame,
+    GlobalStyle,
+    CustomApp,
+    Footer,
+    NavWrapper,
+    NavItem,
+    NavIcon,
+    NavMenu,
+    NavButton,
+    WalletBody,
+    ScreenWrapper,
+    WalletCtn,
+    CashtabLogo,
+    EasterEgg,
+    DesktopLogo,
+} from 'components/App/styles';
+
+const App = () => {
+    const ContextValue = useContext(WalletContext);
+    if (!isWalletContextLoaded(ContextValue)) {
+        // Confirm we have all context required to load the page
+        return null;
+    }
+    const {
+        cashtabState,
+        loading,
+        cashtabLoaded,
+        initialUtxoSyncComplete,
+        update,
+        refreshTransactionHistory,
+        ecashWallet,
+        apiError,
+    } = ContextValue;
+    const { wallets, tokens } = cashtabState;
+    const hasWallet = ecashWallet !== null;
+    const [navMenuClicked, setNavMenuClicked] = useState(false);
+    const handleNavMenuClick = () => setNavMenuClicked(!navMenuClicked);
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    // Track navigation history to detect if we can go back
+    const navigationStackRef = useRef<string[]>([location.pathname]);
+    const isNavigatingBackRef = useRef(false);
+
+    // Track navigation history - add to stack on forward navigation
+    useEffect(() => {
+        const currentPath = location.pathname;
+        const stack = navigationStackRef.current;
+        const lastPath = stack[stack.length - 1];
+
+        // Only add to stack if this is a forward navigation (not from our back handler)
+        if (!isNavigatingBackRef.current && currentPath !== lastPath) {
+            navigationStackRef.current = [...stack, currentPath];
+        }
+
+        // Reset the flag after navigation completes
+        isNavigatingBackRef.current = false;
+    }, [location.pathname]);
+
+    // Handle Android back button: if no navigation history, background the app
+    useEffect(() => {
+        // Only set up back button listener on native platforms
+        if (Capacitor.isNativePlatform()) {
+            let backButtonListener: { remove: () => void } | null = null;
+
+            const setupBackButtonListener = async () => {
+                backButtonListener = await CapacitorApp.addListener(
+                    'backButton',
+                    () => {
+                        const stack = navigationStackRef.current;
+                        const canGoBack = stack.length > 1;
+
+                        if (canGoBack) {
+                            // Remove current path from stack and navigate back
+                            navigationStackRef.current = stack.slice(0, -1);
+                            isNavigatingBackRef.current = true;
+                            navigate(-1);
+                        } else {
+                            // No navigation history - background the app
+                            CapacitorApp.minimizeApp();
+                        }
+                    },
+                );
+            };
+
+            setupBackButtonListener();
+
+            return () => {
+                if (backButtonListener) {
+                    backButtonListener.remove();
+                }
+            };
+        }
+    }, [navigate]);
+
+    // Handle BIP21 URIs when app is opened from an external intent
+    useEffect(() => {
+        if (!Capacitor.isNativePlatform()) {
+            return;
+        }
+
+        const handleBip21Uri = (url: string) => {
+            const normalizedBip21Uri = url.trim().toLowerCase();
+            // PayButton deep links: https://paybutton.org/app?address=...&b=1
+            const { bip21Uri, returnToBrowser } =
+                paybuttonDeepLinkToBip21Uri(normalizedBip21Uri);
+            // Only do a limited check here that this is a valid BIP21 URI.
+            // The amount is not validated at this point, this will be handled
+            // after we jumped to the send screen.
+            const parsed = parseAddressInput(bip21Uri, 0);
+            if (parsed.address.error === false && parsed.address.value) {
+                let sendParams = `bip21=${bip21Uri}`;
+                if (returnToBrowser) {
+                    sendParams += '&returnToBrowser=1';
+                }
+                navigate(`/send?${sendParams}`);
+            }
+        };
+
+        let urlOpenListener: { remove: () => void } | null = null;
+
+        const setupBip21Handlers = async () => {
+            // Handle cold start - app launched from BIP21 URI
+            const launchUrl = await CapacitorApp.getLaunchUrl();
+            if (launchUrl?.url) {
+                handleBip21Uri(launchUrl.url);
+            }
+
+            // Handle warm start - app receives BIP21 URI while running
+            urlOpenListener = await CapacitorApp.addListener(
+                'appUrlOpen',
+                (event: { url: string }) => {
+                    handleBip21Uri(event.url);
+                },
+            );
+        };
+
+        setupBip21Handlers();
+
+        return () => {
+            urlOpenListener?.remove();
+        };
+    }, []);
+
+    // Easter egg boolean not used in extension/src/components/App.js
+    const hasTab = hasWallet
+        ? hasEnoughToken(
+              tokens,
+              '50d8292c6255cda7afc6c8566fed3cf42a2794e9619740fe8f4c95431271410e',
+              '1',
+          )
+        : false;
+    return (
+        <ThemeProvider theme={theme}>
+            <GlobalStyle />
+            {import.meta.env.VITE_BUILD_ENV === 'extension' ? (
+                <>
+                    <ExtensionFrame />
+                    {/** We can only render the address sharing modal if we have a wallet */}
+                    {hasWallet && <Extension />}
+                </>
+            ) : (
+                <>
+                    <ServiceWorkerWrapper />
+                    <WebApp />
+                </>
+            )}
+
+            {(loading || (!initialUtxoSyncComplete && wallets.length > 0)) && (
+                <Spinner />
+            )}
+
+            <CustomApp
+                onClick={e => {
+                    if (
+                        navMenuClicked &&
+                        !(e.target as Element).closest('.nav-menu-container')
+                    ) {
+                        setNavMenuClicked(false);
+                    }
+                }}
+            >
+                <ToastContainer
+                    position="top-right"
+                    autoClose={2000}
+                    hideProgressBar={false}
+                    newestOnTop
+                    closeOnClick
+                    rtl={false}
+                    pauseOnFocusLoss
+                    draggable
+                    pauseOnHover
+                    theme="dark"
+                    transition={Bounce}
+                    aria-label="Notifications"
+                />
+                <WalletBody>
+                    <WalletCtn showFooter={hasWallet}>
+                        {!cashtabLoaded ? (
+                            <LoadingCtn title="Cashtab Loading" />
+                        ) : (
+                            <>
+                                {!hasWallet && !apiError ? (
+                                    <OnBoarding />
+                                ) : (
+                                    <PullToRefresh
+                                        onRefresh={async () => {
+                                            // Sync wallet data instead of reloading the page
+                                            // This refreshes UTXOs, token balances, and transaction history
+                                            await update();
+                                            await refreshTransactionHistory();
+                                        }}
+                                        disabled={loading || !hasWallet}
+                                    >
+                                        <Header
+                                            path={location.pathname}
+                                        ></Header>
+                                        <ScreenWrapper>
+                                            {import.meta.env.VITE_BUILD_ENV !==
+                                                'extension' && (
+                                                <>
+                                                    {hasTab && (
+                                                        <EasterEgg
+                                                            src={TabCash}
+                                                            alt="tabcash"
+                                                        />
+                                                    )}
+                                                </>
+                                            )}
+                                            <Routes>
+                                                <Route
+                                                    path="/wallet"
+                                                    element={<Home />}
+                                                />
+                                                <Route
+                                                    path="/receive"
+                                                    element={<Receive />}
+                                                />
+
+                                                <Route
+                                                    path="/create-token"
+                                                    element={<CreateToken />}
+                                                />
+
+                                                <Route
+                                                    path="/create-nft-collection"
+                                                    element={<CreateToken />}
+                                                />
+
+                                                <Route
+                                                    path="/send"
+                                                    element={<SendXec />}
+                                                />
+                                                <Route path="/send-token">
+                                                    <Route
+                                                        path=":tokenId"
+                                                        element={<Token />}
+                                                    />
+                                                </Route>
+                                                <Route path="/token">
+                                                    <Route
+                                                        index
+                                                        element={<Etokens />}
+                                                    />
+                                                    <Route
+                                                        path=":tokenId"
+                                                        element={<Token />}
+                                                    />
+                                                </Route>
+                                                <Route
+                                                    path="/airdrop"
+                                                    element={<Airdrop />}
+                                                />
+                                                <Route
+                                                    path="/backup"
+                                                    element={<BackupWallet />}
+                                                />
+                                                <Route
+                                                    path="/wallets"
+                                                    element={<Wallets />}
+                                                />
+                                                <Route
+                                                    path="/nfts"
+                                                    element={<Nfts />}
+                                                />
+                                                <Route
+                                                    path="/agora"
+                                                    element={<Agora />}
+                                                />
+                                                <Route
+                                                    path="/contacts"
+                                                    element={<Contacts />}
+                                                />
+
+                                                <Route
+                                                    path="/etokens"
+                                                    element={<Etokens />}
+                                                />
+                                                <Route
+                                                    path="/signverifymsg"
+                                                    element={<SignVerifyMsg />}
+                                                />
+                                                <Route
+                                                    path="/configure"
+                                                    element={<Configure />}
+                                                />
+                                                {import.meta.env
+                                                    .VITE_BUILD_ENV !==
+                                                    'extension' &&
+                                                    import.meta.env
+                                                        .VITE_TESTNET !==
+                                                        'true' && (
+                                                        <>
+                                                            <Route
+                                                                path="/rewards"
+                                                                element={
+                                                                    <Rewards />
+                                                                }
+                                                            />
+                                                        </>
+                                                    )}
+                                                <Route
+                                                    path="/"
+                                                    element={<Home />}
+                                                />
+                                                <Route
+                                                    path="*"
+                                                    element={<NotFound />}
+                                                />
+                                            </Routes>
+                                        </ScreenWrapper>
+                                    </PullToRefresh>
+                                )}
+                            </>
+                        )}
+                    </WalletCtn>
+                    {hasWallet && (
+                        <Footer>
+                            <DesktopLogo>
+                                <CashtabLogo src={Cashtab} alt="cashtab" />
+                            </DesktopLogo>
+                            <NavButton
+                                active={
+                                    location.pathname === '/' ||
+                                    location.pathname === '/wallet'
+                                }
+                                onClick={() => navigate('/')}
+                            >
+                                <span>Transactions</span>
+                                <HomeIcon />
+                            </NavButton>
+
+                            <NavButton
+                                aria-label="Send Screen"
+                                active={location.pathname === '/send'}
+                                onClick={() => navigate('/send')}
+                            >
+                                <span>Send</span>
+                                <SendIcon />
+                            </NavButton>
+                            <NavButton
+                                aria-label="Tokens"
+                                active={location.pathname === '/etokens'}
+                                onClick={() => navigate('/etokens')}
+                            >
+                                <span>Tokens</span>
+                                <TokensIcon />
+                            </NavButton>
+                            <NavButton
+                                aria-label="Receive"
+                                active={location.pathname === '/receive'}
+                                onClick={() => navigate('receive')}
+                            >
+                                <span>Receive</span>
+                                <ReceiveIcon />
+                            </NavButton>
+                            <NavWrapper
+                                className="nav-menu-container"
+                                title="Show Other Screens"
+                                onClick={() => {
+                                    handleNavMenuClick();
+                                }}
+                            >
+                                <NavIcon clicked={navMenuClicked} />
+                                <NavMenu
+                                    title="Other Screens"
+                                    open={navMenuClicked}
+                                >
+                                    <NavItem
+                                        active={location.pathname === '/backup'}
+                                        onClick={() => navigate('/backup')}
+                                    >
+                                        {' '}
+                                        <p>Wallet Backup</p>
+                                        <WalletIcon />
+                                    </NavItem>
+                                    <NavItem
+                                        active={
+                                            location.pathname === '/wallets'
+                                        }
+                                        onClick={() => navigate('/wallets')}
+                                    >
+                                        {' '}
+                                        <p>Wallets</p>
+                                        <BankIcon />
+                                    </NavItem>
+                                    <NavItem
+                                        active={location.pathname === '/nfts'}
+                                        onClick={() => navigate('/nfts')}
+                                    >
+                                        {' '}
+                                        <p>Listed NFTs</p>
+                                        <NftIcon />
+                                    </NavItem>
+                                    <NavItem
+                                        active={location.pathname === '/agora'}
+                                        onClick={() => navigate('/agora')}
+                                    >
+                                        {' '}
+                                        <p>Agora</p>
+                                        <DogeIcon />
+                                    </NavItem>
+                                    <NavItem
+                                        active={
+                                            location.pathname === '/contacts'
+                                        }
+                                        onClick={() => navigate('/contacts')}
+                                    >
+                                        {' '}
+                                        <p>Contacts</p>
+                                        <ContactsIcon />
+                                    </NavItem>
+                                    <NavItem
+                                        active={
+                                            location.pathname === '/airdrop'
+                                        }
+                                        onClick={() => navigate('/airdrop')}
+                                    >
+                                        {' '}
+                                        <p>Airdrop</p>
+                                        <AirdropIcon />
+                                    </NavItem>
+                                    {import.meta.env.VITE_BUILD_ENV !==
+                                        'extension' &&
+                                        import.meta.env.VITE_TESTNET !==
+                                            'true' && (
+                                            <>
+                                                <NavItem
+                                                    active={
+                                                        location.pathname ===
+                                                        '/rewards'
+                                                    }
+                                                    onClick={() =>
+                                                        navigate('/rewards')
+                                                    }
+                                                >
+                                                    {' '}
+                                                    <p>Rewards</p>
+                                                    <RewardIcon />
+                                                </NavItem>
+                                            </>
+                                        )}
+                                    <NavItem
+                                        active={
+                                            location.pathname ===
+                                            '/signverifymsg'
+                                        }
+                                        onClick={() =>
+                                            navigate('/signverifymsg')
+                                        }
+                                    >
+                                        <p>Sign & Verify</p>
+                                        <ThemedSignAndVerifyMsg />
+                                    </NavItem>
+                                    <NavItem
+                                        active={
+                                            location.pathname === '/configure'
+                                        }
+                                        onClick={() => navigate('/configure')}
+                                    >
+                                        <p>Settings</p>
+                                        <SettingsIcon />
+                                    </NavItem>
+                                </NavMenu>
+                            </NavWrapper>
+                        </Footer>
+                    )}
+                </WalletBody>
+                <Tooltip
+                    id="cashtab-tooltip"
+                    place="bottom-end"
+                    opacity={1}
+                    style={{ zIndex: 1000 }}
+                />
+            </CustomApp>
+        </ThemeProvider>
+    );
+};
+
+export default App;

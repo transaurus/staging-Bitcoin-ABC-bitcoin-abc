@@ -1,0 +1,251 @@
+// Copyright (c) 2024 The Bitcoin developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+import {
+    toXec,
+    toSatoshis,
+    nanoSatoshisToXec,
+    xecToNanoSatoshis,
+    hasEnoughToken,
+    createCashtabWallet,
+    fiatToSatoshis,
+    decimalizeTokenAmount,
+    undecimalizeTokenAmount,
+    removeLeadingZeros,
+    sciToDecimal,
+    toBigInt,
+    sortWalletsForDisplay,
+} from 'wallet';
+import { isValidStoredCashtabWallet } from 'validation';
+import vectors from '../fixtures/vectors';
+
+describe('Cashtab wallet methods', () => {
+    describe('Converts satoshis to XEC and XEC to satoshis', () => {
+        const { expectedReturns, expectedErrors } = vectors.toXec;
+        expectedReturns.forEach(expectedReturn => {
+            const { description, xec, satoshis } = expectedReturn;
+            it(`Converts satoshis to xec: ${description}`, () => {
+                const satsResult = toXec(satoshis);
+                expect(satsResult).toBe(xec);
+                // Check string equality as well as JS floating point comparisons
+                // are unreliable for large numbers
+                expect(satsResult.toString()).toBe(xec.toString());
+            });
+            it(`Converts xec to satoshis: ${description}`, () => {
+                const xecResult = toSatoshis(xec);
+                expect(xecResult).toBe(satoshis);
+                // Check string equality as well as JS floating point comparisons
+                // are unreliable for large numbers
+                expect(xecResult.toString()).toBe(satoshis.toString());
+            });
+        });
+        // toXec does not accept non-integer input
+        expectedErrors.forEach(expectedError => {
+            const { description, satoshis, errorMsg } = expectedError;
+            it(`toXec throws error for: ${description}`, () => {
+                expect(() => toXec(satoshis)).toThrow(errorMsg);
+            });
+        });
+        // toSatoshis will not return non-integer input
+        vectors.toSatoshis.expectedErrors.forEach(expectedError => {
+            const { description, xec, errorMsg } = expectedError;
+            it(`toSatoshis throws error for: ${description}`, () => {
+                expect(() => toSatoshis(xec)).toThrow(errorMsg);
+            });
+        });
+    });
+    describe('Determines if the wallet has greater than or equal to a specified qty of a specified token', () => {
+        const { expectedReturns } = vectors.hasEnoughToken;
+        expectedReturns.forEach(expectedReturn => {
+            const { description, tokens, tokenId, tokenQty, hasEnough } =
+                expectedReturn;
+            it(`hasEnoughToken: ${description}`, () => {
+                expect(hasEnoughToken(tokens, tokenId, tokenQty)).toBe(
+                    hasEnough,
+                );
+            });
+        });
+    });
+    describe('Creates a wallet from valid bip39 mnemonic', () => {
+        const { expectedReturns } = vectors.createCashtabWallet;
+        expectedReturns.forEach(expectedReturn => {
+            const { description, mnemonic, wallet } = expectedReturn;
+            it(`createCashtabWallet: ${description}`, async () => {
+                expect(createCashtabWallet(mnemonic)).toStrictEqual(wallet);
+
+                // The created wallet is a valid Cashtab wallet
+                expect(isValidStoredCashtabWallet(wallet)).toBe(true);
+            });
+        });
+    });
+    describe('Converts string input of fiat send amount to satoshis XEC', () => {
+        const { expectedReturns } = vectors.fiatToSatoshis;
+        expectedReturns.forEach(expectedReturn => {
+            const { description, sendAmountFiat, fiatPrice, returned } =
+                expectedReturn;
+            it(`createCashtabWallet: ${description}`, () => {
+                expect(fiatToSatoshis(sendAmountFiat, fiatPrice)).toBe(
+                    returned,
+                );
+            });
+        });
+    });
+    describe('Can sort wallets appropriately for display, leading with the active wallet', () => {
+        const { expectedReturns } = vectors.sortWalletsForDisplay;
+        expectedReturns.forEach(expectedReturn => {
+            const { description, activeWallet, wallets, returned } =
+                expectedReturn;
+            it(`sortWalletsForDisplay: ${description}`, () => {
+                expect(sortWalletsForDisplay(activeWallet, wallets)).toEqual(
+                    returned,
+                );
+            });
+        });
+    });
+    describe('We can decimalize a token amount string and undecimalize it back', () => {
+        const { expectedReturns, expectedErrors } =
+            vectors.decimalizeTokenAmount;
+        expectedReturns.forEach(expectedReturn => {
+            const { description, amount, decimals, returned } = expectedReturn;
+            it(`decimalizeTokenAmount: ${description}`, () => {
+                expect(decimalizeTokenAmount(amount, decimals)).toBe(returned);
+            });
+            it(`undecimalizeTokenAmount: ${description}`, () => {
+                expect(undecimalizeTokenAmount(returned, decimals)).toBe(
+                    amount,
+                );
+            });
+        });
+        // We can decimalize amounts in scientific notation
+        // Note we do not expect undecimalizeTokenAmount to return these to sci notation
+        it(`decimalizeTokenAmount can handle large numbers in scientific notation`, () => {
+            expect(decimalizeTokenAmount('1.40577399462323814e18', 9)).toBe(
+                '1405773994.623238140',
+            );
+        });
+        it(`decimalizeTokenAmount can handle larger numbers in scientific notation`, () => {
+            expect(
+                decimalizeTokenAmount(
+                    '1.234567898765432101234567898765432e33',
+                    9,
+                ),
+            ).toBe('1234567898765432101234567.898765432');
+        });
+        it(`decimalizeTokenAmount can handle larger numbers in scientific notation for zero decimals`, () => {
+            expect(
+                decimalizeTokenAmount(
+                    '1.234567898765432101234567898765432e33',
+                    0,
+                ),
+            ).toBe('1234567898765432101234567898765432');
+        });
+        expectedErrors.forEach(expectedError => {
+            const { description, amount, decimals, error } = expectedError;
+            it(`decimalizeTokenAmount throws error for: ${description}`, () => {
+                expect(() => decimalizeTokenAmount(amount, decimals)).toThrow(
+                    error,
+                );
+            });
+        });
+    });
+    describe('We can undecimalize a decimalizedTokenAmount string, and we throw expected errors if undecimalizeTokenAmount is invalid', () => {
+        const { expectedReturns, expectedErrors } =
+            vectors.undecimalizeTokenAmount;
+        expectedReturns.forEach(expectedReturn => {
+            const { description, decimalizedAmount, decimals, returned } =
+                expectedReturn;
+            it(`undecimalizeTokenAmount: ${description}`, () => {
+                expect(
+                    undecimalizeTokenAmount(decimalizedAmount, decimals),
+                ).toBe(returned);
+            });
+            // Note that we cannot round trip these tests, as decimalizeTokenAmount will
+            // always return exact precision, while undecimalizeTokenAmount tolerates underprecision
+        });
+        expectedErrors.forEach(expectedError => {
+            const { description, decimalizedAmount, decimals, error } =
+                expectedError;
+            it(`undecimalizeTokenAmount throws error for: ${description}`, () => {
+                expect(() =>
+                    undecimalizeTokenAmount(decimalizedAmount, decimals),
+                ).toThrow(error);
+            });
+        });
+    });
+    describe('Removes leading zeros from a string', () => {
+        const { expectedReturns } = vectors.removeLeadingZeros;
+        expectedReturns.forEach(expectedReturn => {
+            const { description, givenString, returned } = expectedReturn;
+            it(`removeLeadingZeros: ${description}`, () => {
+                expect(removeLeadingZeros(givenString)).toBe(returned);
+            });
+        });
+    });
+    describe('Converts nanosatoshis to XEC and XEC to nanosatoshis', () => {
+        const { expectedReturns, expectedErrors } = vectors.nanoSatoshisToXec;
+        expectedReturns.forEach(expectedReturn => {
+            const { description, xec, nanosatoshis } = expectedReturn;
+            it(`Converts nanosatoshis to xec: ${description}`, () => {
+                const satsResult = nanoSatoshisToXec(nanosatoshis);
+                expect(satsResult).toBe(xec);
+                // Check string equality as well as JS floating point comparisons
+                // are unreliable for large numbers
+                expect(satsResult.toString()).toBe(xec.toString());
+            });
+            it(`Converts xec to nanosatoshis: ${description}`, () => {
+                const xecResult = xecToNanoSatoshis(xec);
+                expect(xecResult).toBe(nanosatoshis);
+                // Check string equality as well as JS floating point comparisons
+                // are unreliable for large numbers
+                expect(xecResult.toString()).toBe(nanosatoshis.toString());
+            });
+        });
+        // nanoSatoshisToXec does not accept non-bigint input
+        expectedErrors.forEach(expectedError => {
+            const { description, nanosatoshis, errorMsg } = expectedError;
+            it(`nanoSatoshisToXec throws error for: ${description}`, () => {
+                // @ts-expect-error - Testing runtime error for non-bigint input
+                expect(() => nanoSatoshisToXec(nanosatoshis)).toThrow(errorMsg);
+            });
+        });
+        // xecToNanoSatoshis will round non-integer input
+        vectors.xecToNanoSatoshis.expectedReturns.forEach(expectedReturn => {
+            const { description, xec, returned } = expectedReturn;
+            it(`Converts overprecise or < 1 nanosat XEC values to nanosatoshis: ${description}`, () => {
+                const xecResult = xecToNanoSatoshis(xec);
+                expect(xecResult).toBe(returned);
+            });
+        });
+    });
+    describe('We can convert scientific notation numbers to stringified decimals', () => {
+        const { expectedReturns, expectedErrors } = vectors.sciToDecimal;
+        expectedReturns.forEach(expectedReturn => {
+            const { description, amount, returned } = expectedReturn;
+            it(`sciToDecimal: ${description}`, () => {
+                expect(sciToDecimal(amount)).toBe(returned);
+            });
+        });
+        expectedErrors.forEach(expectedError => {
+            const { description, amount, error } = expectedError;
+            it(`sciToDecimal throws error for: ${description}`, () => {
+                expect(() => sciToDecimal(amount)).toThrow(error);
+            });
+        });
+    });
+    describe('We can convert stringified scientific notation numbers to bigint', () => {
+        const { expectedReturns, expectedErrors } = vectors.toBigInt;
+        expectedReturns.forEach(expectedReturn => {
+            const { description, str, returned } = expectedReturn;
+            it(`toBigInt: ${description}`, () => {
+                expect(toBigInt(str)).toBe(returned);
+            });
+        });
+        expectedErrors.forEach(expectedError => {
+            const { description, str, error } = expectedError;
+            it(`toBigInt throws error for: ${description}`, () => {
+                expect(() => toBigInt(str)).toThrow(error);
+            });
+        });
+    });
+});

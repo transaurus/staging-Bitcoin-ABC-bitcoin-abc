@@ -1,0 +1,60 @@
+# Copyright (c) 2024 The Bitcoin developers
+# Distributed under the MIT software license, see the accompanying
+# COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+[package]
+name = "bitcoinsuite-chronik-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+abc-rust-error = { path = "../../chronik/abc-rust-error"}
+bitcoinsuite-core = { path = "../../chronik/bitcoinsuite-core" }
+chronik-proto = { path = "../../chronik/chronik-proto/"}
+
+# Async trait facility
+async-trait = "0.1.86"
+
+# Error structs/enums
+thiserror = "1.0"
+
+# HTTP client
+reqwest = "0.11"
+
+# Async runtime and scheduler
+tokio = { version = "1.14", features = ["full"] }
+
+# Protobuf (de)serialization
+prost = "0.11"
+
+# Hex en-/decoding
+hex = "0.4"
+
+regex = "1"
+
+bytes = { version = "1.4", features = ["serde"] }
+
+# JSON serialization/deserialization
+serde_json = "1.0" 
+
+# Serializes and deserializes Rust data
+serde = "1.0.217"
+
+# Async streams utilities
+futures-util = "0.3"
+
+# URL parsing and manipulation
+url = "2.5"
+
+# WebSocket client implementation
+tokio-tungstenite = "0.26.2"
+
+tungstenite = "0.26.2"
+
+[build-dependencies]
+# Build Protobuf structs
+prost-build = "0.11"
+
+[dev-dependencies]
+# Colorful diffs for assertions
+pretty_assertions = "1.0"

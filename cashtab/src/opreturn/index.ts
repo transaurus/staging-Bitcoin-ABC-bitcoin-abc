@@ -1,0 +1,999 @@
+// Copyright (c) 2023 The Bitcoin developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+import appConfig from 'config/app';
+import { encodeCashAddress } from 'ecashaddrjs';
+import { encodeBase58 } from 'b58-ts';
+import { opReturn } from 'config/opreturn';
+import {
+    isValidTokenId,
+    getOpReturnRawError,
+    getEmppRawError,
+    getInputDataRawError,
+} from 'validation';
+import { getStackArray, consume } from 'ecash-lib';
+import {
+    Script,
+    pushBytesOp,
+    OP_RETURN,
+    fromHex,
+    TxOutput,
+    Bytes,
+    bytesToStr,
+} from 'ecash-lib';
+import { AddressType } from 'ecashaddrjs/dist/types';
+import { AppAction, XecxAction, UnknownAction } from 'chronik';
+import { Buffer } from 'buffer';
+
+// FIXME we should never use Buffer, it creates polyfill nightmares in prod builds, you can use other methods
+
+/**
+ * Get targetOutput for a Cashtab Msg from user input string
+ * @param cashtabMsg string
+ * @throws if msg exceeds opReturnByteLimit of 223 or invalid input
+ * @returns targetOutput, e.g. {sats: 0n, script: <encoded cashtab msg>}
+ */
+export const getCashtabMsgTargetOutput = (cashtabMsg: string): TxOutput => {
+    if (typeof cashtabMsg !== 'string') {
+        throw new Error('getCashtabMsgTargetOutput requires string input');
+    }
+    if (cashtabMsg === '') {
+        throw new Error('Cashtab Msg cannot be an empty string');
+    }
+    // Cashtab msgs are utf8 encoded
+    const cashtabMsgScript = Buffer.from(cashtabMsg, 'utf8');
+    const cashtabMsgByteCount = cashtabMsgScript.length;
+
+    if (cashtabMsgByteCount > opReturn.cashtabMsgByteLimit) {
+        throw new Error(
+            `Error: Cashtab msg is ${cashtabMsgByteCount} bytes. Exceeds ${opReturn.cashtabMsgByteLimit} byte limit.`,
+        );
+    }
+
+    const script = Script.fromOps([
+        OP_RETURN,
+        // LOKAD
+        pushBytesOp(Buffer.from(opReturn.appPrefixesHex.cashtab, 'hex')),
+        // utf8-encoded msg
+        pushBytesOp(cashtabMsgScript),
+    ]);
+
+    // Create output
+    return { sats: 0n, script };
+};
+
+/**
+ * Calculates the bytecount of a Cashtab Msg as part of an OP_RETURN output
+ * Used to validate user input in Send.js
+ *
+ * @param cashtabMsg alias input from a text input field
+ * @returns aliasInputByteSize the byte size of the alias input
+ */
+export const getCashtabMsgByteCount = (cashtabMsg: string): number => {
+    if (typeof cashtabMsg !== 'string') {
+        throw new Error('cashtabMsg must be a string');
+    }
+
+    // Cashtab msgs are utf8 encoded
+    const cashtabMsgScript = Buffer.from(cashtabMsg, 'utf8');
+    return cashtabMsgScript.length;
+};
+
+export interface ParsedOpReturnRaw {
+    protocol: string;
+    data: string;
+}
+/**
+ * Parse an op_return_raw input according to known op_return specs
+ * The returned output is used to generate a preview of the tx on the SendXec screen
+ * @param opReturnRaw
+ * @returns {object} {protocol: <protocolLabel>, data: <parsedData>}
+ */
+export const parseOpReturnRaw = (opReturnRaw: string): ParsedOpReturnRaw => {
+    // Intialize return data
+    const parsed = { protocol: 'Unknown Protocol', data: opReturnRaw };
+    // See if we can parse it
+    let stackArray;
+    try {
+        stackArray = getStackArray(
+            `${opReturn.opReturnPrefixHex}${opReturnRaw}`,
+        );
+    } catch {
+        // Note that in Cashtab we only call parseOpReturnRaw if validation has already cleared this
+        throw new Error('Invalid OP_RETURN');
+    }
+    const firstPush = stackArray[0];
+
+    // Parse known protocol identifiers
+    switch (firstPush) {
+        case opReturn.appPrefixesHex.eToken:
+            parsed.protocol = 'SLP';
+            // Unless there is a reason in the future, do not fully parse all possible slp variations
+            return parsed;
+        case opReturn.appPrefixesHex.cashtab:
+            if (typeof stackArray[1] !== 'undefined') {
+                parsed.protocol = 'Cashtab Msg';
+                parsed.data = Buffer.from(stackArray[1], 'hex').toString(
+                    'utf8',
+                );
+            } else {
+                parsed.protocol = 'Invalid Cashtab Msg';
+            }
+            return parsed;
+        case opReturn.appPrefixesHex.cashtabEncrypted:
+            parsed.protocol = 'Encrypted Cashtab Msg';
+            return parsed;
+        case opReturn.appPrefixesHex.airdrop: {
+            let data = '';
+            if (typeof stackArray[1] !== 'undefined') {
+                parsed.protocol = 'Airdrop';
+                data = `Token ID: ${stackArray[1]}`;
+            }
+            if (typeof stackArray[2] !== 'undefined') {
+                data = `${data}\nMsg: ${Buffer.from(
+                    stackArray[2],
+                    'hex',
+                ).toString('utf8')}`;
+            }
+            if (data === '') {
+                parsed.protocol = 'Invalid Airdrop';
+                return parsed;
+            }
+            parsed.data = data;
+            return parsed;
+        }
+        case opReturn.appPrefixesHex.aliasRegistration: {
+            // Magic numbers per spec
+            // https://github.com/Bitcoin-ABC/bitcoin-abc/blob/master/doc/standards/ecash-alias.md
+            if (
+                stackArray[1] === '00' &&
+                typeof stackArray[2] !== 'undefined' &&
+                typeof stackArray[3] !== 'undefined' &&
+                stackArray[3].length === 42
+            ) {
+                const addressTypeByte = stackArray[3].slice(0, 2);
+                let addressType;
+                if (addressTypeByte === '00') {
+                    addressType = 'p2pkh';
+                } else if (addressTypeByte === '08') {
+                    addressType = 'p2sh';
+                } else {
+                    parsed.protocol = 'Invalid Alias Registration';
+                    return parsed;
+                }
+
+                parsed.protocol = 'Alias Registration';
+                parsed.data = `${Buffer.from(stackArray[2], 'hex').toString(
+                    'utf8',
+                )} to ${encodeCashAddress(
+                    appConfig.prefix,
+                    addressType as AddressType,
+                    stackArray[3].slice(1),
+                )}`;
+                return parsed;
+            }
+            parsed.protocol = 'Invalid Alias Registration';
+            return parsed;
+        }
+        case opReturn.appPrefixesHex.paybutton: {
+            // Spec https://github.com/Bitcoin-ABC/bitcoin-abc/blob/master/doc/standards/paybutton.md
+            if (
+                stackArray[1] === '00' &&
+                typeof stackArray[2] !== 'undefined' &&
+                typeof stackArray[3] !== 'undefined'
+            ) {
+                parsed.protocol = 'PayButton';
+                const dataPush =
+                    stackArray[2] === '00'
+                        ? ''
+                        : Buffer.from(stackArray[2], 'hex').toString('utf8');
+                const noncePush = stackArray[3] === '00' ? '' : stackArray[3];
+                parsed.data = `${
+                    dataPush !== ''
+                        ? `Data: ${dataPush}${noncePush !== '' ? ', ' : ''}`
+                        : ''
+                }${noncePush !== '' ? `Nonce: ${noncePush}` : ''}`;
+                return parsed;
+            }
+            parsed.protocol = 'Invalid PayButton';
+            parsed.data = opReturnRaw;
+            return parsed;
+        }
+        case opReturn.appPrefixesHex.nftoa: {
+            // Spec https://github.com/Bitcoin-ABC/bitcoin-abc/blob/master/doc/standards/nftoa.md
+            if (typeof stackArray[1] !== 'undefined') {
+                parsed.protocol = 'NFToa';
+                const dataPush = Buffer.from(stackArray[1], 'hex').toString(
+                    'utf8',
+                );
+                const noncePush =
+                    typeof stackArray[2] === 'undefined' ? '' : stackArray[2];
+                parsed.data = `${
+                    dataPush !== ''
+                        ? `Data: ${dataPush}${noncePush !== '' ? ', ' : ''}`
+                        : ''
+                }${noncePush !== '' ? `Nonce: ${noncePush}` : ''}`;
+                return parsed;
+            }
+            parsed.protocol = 'Invalid NFToa';
+            parsed.data = opReturnRaw;
+            return parsed;
+        }
+        case opReturn.appPrefixesHex.eCashChat: {
+            // Same spec as a Cashtab msg, different prefix
+            if (typeof stackArray[1] !== 'undefined') {
+                parsed.protocol = 'eCash Chat';
+                parsed.data = Buffer.from(stackArray[1], 'hex').toString(
+                    'utf8',
+                );
+            } else {
+                parsed.protocol = 'Invalid eCash Chat';
+            }
+            return parsed;
+        }
+        default: {
+            return parsed;
+        }
+    }
+};
+
+/**
+ * Parse a firma query param from a bip21 string
+ *
+ * This is a niche use case (for now), only working for ALP sends created with bip21
+ * query string (most likely from an app or scanning a QR code)
+ *
+ * In Cashtab, we only support encoded Solana addresses (to support FIRMA redemptions)
+ * and Cashtab Msgs. In practice, we do not expect Cashtab msgs, but this is included here
+ * as a template for future extensibility of generalized ALP data pushes
+ */
+export const parseFirma = (firmaPush: string): ParsedOpReturnRaw => {
+    // Get LOKAD_ID
+    const LOKADID_LENGTH_STR = 8; // 4 bytes
+    // NB firma is always a hex string
+    const lokadHex = firmaPush.slice(0, LOKADID_LENGTH_STR);
+    const dataHex = firmaPush.slice(LOKADID_LENGTH_STR);
+    switch (lokadHex) {
+        case opReturn.appPrefixesHex.solAddr: {
+            const EXPECTED_SOLANA_ADDRESS_LENGTH = 64; // 32 bytes
+            return {
+                protocol: 'Solana Address',
+                data:
+                    dataHex.length === EXPECTED_SOLANA_ADDRESS_LENGTH
+                        ? encodeBase58(fromHex(dataHex))
+                        : `Invalid Solana address: raw pk ${dataHex}`,
+            };
+        }
+        case opReturn.appPrefixesHex.cashtab: {
+            // NB for EMPP cashtab msg, we have no byte push for the msg itself
+            // First 4 bytes are lokad, rest is the msg
+            return {
+                protocol: 'Cashtab Msg',
+                data: Buffer.from(dataHex, 'hex').toString('utf8'),
+            };
+        }
+        default: {
+            // Unknown app
+            return { protocol: 'Unknown Lokad', data: firmaPush };
+        }
+    }
+};
+
+/**
+ * Get targetOutput for an Airdrop tx OP_RETURN from token id and optional user message
+ * Airdrop tx spec: <Airdrop Protocol Identifier> <tokenId> <optionalMsg>
+ * @param tokenId tokenId of the token receiving this airdrop tx
+ * @param airdropMsg optional brief msg accompanying the airdrop
+ * @throws if msg exceeds opReturnByteLimit of 223 or invalid input
+ * @returns targetOutput, e.g. {sats: 0n, script: <encoded airdrop msg>}
+ */
+export const getAirdropTargetOutput = (
+    tokenId: string,
+    airdropMsg = '',
+): TxOutput => {
+    if (!isValidTokenId(tokenId)) {
+        throw new Error(`Invalid tokenId: ${tokenId}`);
+    }
+    if (typeof airdropMsg !== 'string') {
+        throw new Error(
+            'getAirdropTargetOutput requires string input for tokenId and airdropMsg',
+        );
+    }
+    const scriptArray = [
+        OP_RETURN,
+        // LOKAD
+        pushBytesOp(Buffer.from(opReturn.appPrefixesHex.airdrop, 'hex')),
+        pushBytesOp(fromHex(tokenId)),
+    ];
+
+    if (airdropMsg.trim() !== '') {
+        // Cashtab msgs are utf8 encoded
+        const airdropMsgScript = Buffer.from(airdropMsg, 'utf8');
+        const airdropMsgByteCount = airdropMsgScript.length;
+
+        if (airdropMsgByteCount > opReturn.airdropMsgByteLimit) {
+            throw new Error(
+                `Error: Airdrop msg is ${airdropMsgByteCount} bytes. Exceeds ${opReturn.airdropMsgByteLimit} byte limit.`,
+            );
+        }
+        scriptArray.push(pushBytesOp(airdropMsgScript));
+    }
+
+    const script = Script.fromOps(scriptArray);
+
+    // Create output
+    return { sats: 0n, script };
+};
+
+/**
+ * Get targetOutput for a bip21-set opreturn param
+ * Note that this function is creating the OP_RETURN script with raw hex
+ * it is not pushing and adding pushdata like other functions above that are "translating"
+ * human input into script
+ * @param opreturnParam string
+ * @throws if invalid input
+ * @returns targetOutput, e.g. {sats: 0n, script: <encoded opparam>}
+ */
+export const getOpreturnParamTargetOutput = (
+    opreturnParam: string,
+): TxOutput => {
+    if (getOpReturnRawError(opreturnParam) !== false) {
+        throw new Error(`Invalid opreturnParam "${opreturnParam}"`);
+    }
+
+    // Note this is a "weird" function that translates op_return_raw input per bip21 spec
+    // We are adding the expected OP_RETURN code to the beginning of our param
+    // And we are converting the whole thing to ecash-lib "Script" type
+    // Unlike other functions we are not building an output from multiple pushes
+    const script = new Script(
+        fromHex(opReturn.opReturnPrefixHex + opreturnParam),
+    );
+
+    // Create output
+    return { sats: 0n, script };
+};
+
+export const getEmppAppActions = (stackArray: string[]): AppAction[] => {
+    if (!Array.isArray(stackArray) || stackArray.length === 0) {
+        throw new Error(
+            'stackArray must be an array of OP_RETURN pushes with first entry OP_RESERVED',
+        );
+    }
+
+    // Remove OP_RESERVED
+    const emppIdentifier = stackArray[0];
+    if (emppIdentifier !== opReturn.opReserved) {
+        throw new Error('Not an EMPP stackArray');
+    }
+
+    const appActions: AppAction[] = [];
+
+    // Note every element of stackArray after OP_RESERVED is an EMPP push
+    // The .slice(1) removes OP_RESERVED so we are only dealing with complete EMPP pushes
+    for (const push of stackArray.slice(1)) {
+        const emppAction = getEmppAppAction(push);
+
+        if (typeof emppAction !== 'undefined') {
+            appActions.push(emppAction);
+        }
+    }
+
+    return appActions;
+};
+
+export const getEmppAppAction = (push: string): AppAction | undefined => {
+    const lokadBytes = 4;
+    const emppStack = { remainingHex: push };
+    const lokadId = consume(emppStack, lokadBytes);
+    switch (lokadId) {
+        case opReturn.appPrefixesHex.xecx: {
+            const action = getXecxAppAction(emppStack);
+            return {
+                lokadId,
+                app: 'XECX',
+                isValid:
+                    'minBalanceTokenSatoshisToReceivePaymentThisRound' in action
+                        ? true
+                        : false,
+                action,
+            };
+        }
+        case opReturn.appPrefixesHex.agora:
+        case opReturn.appPrefixesHex.alp: {
+            // Do not parse ALP as an app action, this will parsed by chronik as an indexed token tx
+            // Do not parse AGORA as an app action, this is parsed elsewhere
+            return;
+        }
+        case opReturn.appPrefixesHex.solAddr: {
+            const VALID_SOL_ADDR_PUSH_LENGTH = 64;
+            const isValid =
+                emppStack.remainingHex.length === VALID_SOL_ADDR_PUSH_LENGTH;
+            return {
+                lokadId,
+                app: 'Solana Address',
+                isValid,
+                action: {
+                    solAddr: isValid
+                        ? encodeBase58(fromHex(emppStack.remainingHex))
+                        : `Invalid SOL pk: ${emppStack.remainingHex}`,
+                },
+            };
+        }
+        case opReturn.appPrefixesHex.cashtab: {
+            // EMPP Cashtab msg: lokad (4 bytes) + UTF-8 encoded message
+            // After consuming lokad, remainingHex is the UTF-8 encoded message
+            const msgBytes = fromHex(emppStack.remainingHex);
+            const isValid = msgBytes.length > 0;
+            return {
+                lokadId,
+                app: 'Cashtab Msg',
+                isValid,
+                action: {
+                    msg: isValid ? bytesToStr(msgBytes) : 'Invalid Cashtab msg',
+                },
+            };
+        }
+        case opReturn.appPrefixesHex.paybutton: {
+            // PayButton EMPP push: lokad (4 bytes) + version (1 byte) + data + nonce
+            // PayButton v0 spec: https://github.com/Bitcoin-ABC/bitcoin-abc/blob/master/doc/standards/paybutton.md
+            const paybuttonStack = { remainingHex: emppStack.remainingHex };
+
+            // Version byte (should be 00 for v0)
+            const version = consume(paybuttonStack, 1);
+            const SUPPORTED_VERSION = '00';
+
+            if (version !== SUPPORTED_VERSION) {
+                return {
+                    lokadId,
+                    app: 'PayButton',
+                    isValid: false,
+                    action: {
+                        stack: push,
+                        decoded: `Unsupported PayButton version: 0x${version}`,
+                    },
+                };
+            }
+
+            // Parse data push
+            // First byte is the length of data (or 00 for empty)
+            const dataLengthHex = consume(paybuttonStack, 1);
+            const dataLength = parseInt(dataLengthHex, 16);
+            let dataPush = '';
+
+            if (dataLength === 0) {
+                // Empty data
+                dataPush = '';
+            } else if (
+                dataLength > 0 &&
+                paybuttonStack.remainingHex.length >= dataLength * 2
+            ) {
+                // Read data bytes
+                const dataHex = consume(paybuttonStack, dataLength);
+                dataPush = bytesToStr(fromHex(dataHex));
+            } else {
+                // Invalid data length
+                return {
+                    lokadId,
+                    app: 'PayButton',
+                    isValid: false,
+                    action: {
+                        stack: push,
+                        decoded: 'Invalid PayButton data length',
+                    },
+                };
+            }
+
+            // Parse nonce (8 bytes or 00 for empty)
+            let noncePush = '';
+            if (paybuttonStack.remainingHex.length >= 2) {
+                const nonceLengthHex = consume(paybuttonStack, 1);
+                const nonceLength = parseInt(nonceLengthHex, 16);
+
+                if (nonceLength === 0) {
+                    // Empty nonce
+                    noncePush = '';
+                } else if (
+                    nonceLength === 8 &&
+                    paybuttonStack.remainingHex.length >= 16
+                ) {
+                    // Read 8-byte nonce
+                    noncePush = consume(paybuttonStack, 8);
+                } else {
+                    // Invalid nonce
+                    return {
+                        lokadId,
+                        app: 'PayButton',
+                        isValid: false,
+                        action: {
+                            stack: push,
+                            decoded: 'Invalid PayButton nonce',
+                        },
+                    };
+                }
+            }
+
+            // Valid PayButton
+            return {
+                lokadId,
+                app: 'PayButton',
+                isValid: true,
+                action: {
+                    data: dataPush,
+                    nonce: noncePush,
+                },
+            };
+        }
+        case opReturn.appPrefixesHex.dice: {
+            // DICE bet EMPP push: lokad (4 bytes) + version (1 byte) + minValue (u32, 4 bytes) + maxValue (u32, 4 bytes)
+            const diceStack = { remainingHex: emppStack.remainingHex };
+
+            // Version byte (should be 00 for v0)
+            const version = consume(diceStack, 1);
+            const SUPPORTED_VERSION = '00';
+
+            if (version !== SUPPORTED_VERSION) {
+                return {
+                    lokadId,
+                    app: 'DICE Bet',
+                    isValid: false,
+                    action: {
+                        stack: push,
+                        decoded: `Unsupported DICE version: 0x${version}`,
+                    },
+                };
+            }
+
+            // Need at least 8 bytes (4 for minValue + 4 for maxValue)
+            if (diceStack.remainingHex.length < 16) {
+                return {
+                    lokadId,
+                    app: 'DICE Bet',
+                    isValid: false,
+                    action: {
+                        stack: push,
+                        decoded: 'Invalid DICE bet data length',
+                    },
+                };
+            }
+
+            // Read minValue (u32, 4 bytes, little-endian)
+            const minValueBytes = fromHex(consume(diceStack, 4));
+            const minValue = new Bytes(minValueBytes).readU32();
+
+            // Read maxValue (u32, 4 bytes, little-endian)
+            const maxValueBytes = fromHex(consume(diceStack, 4));
+            const maxValue = new Bytes(maxValueBytes).readU32();
+
+            // Validate values (0 is excluded, range is [1, 100000000])
+            const MAX_ROLL_VALUE = 100_000_000;
+            const isValid =
+                minValue >= 1 &&
+                minValue <= MAX_ROLL_VALUE &&
+                maxValue >= 1 &&
+                maxValue <= MAX_ROLL_VALUE &&
+                maxValue >= minValue;
+
+            return {
+                lokadId,
+                app: 'DICE Bet',
+                isValid,
+                action: {
+                    minValue,
+                    maxValue,
+                },
+            };
+        }
+        case opReturn.appPrefixesHex.roll: {
+            // ROLL payout EMPP push: lokad (4 bytes) + version (1 byte) + betTxid (32 bytes) + roll (u32, 4 bytes) + seedHash (32 bytes) + result (1 byte UTF-8)
+            const rollStack = { remainingHex: emppStack.remainingHex };
+
+            // Version byte (should be 00 for v0)
+            const version = consume(rollStack, 1);
+            const SUPPORTED_VERSION = '00';
+
+            if (version !== SUPPORTED_VERSION) {
+                return {
+                    lokadId,
+                    app: 'ROLL Payout',
+                    isValid: false,
+                    action: {
+                        stack: push,
+                        decoded: `Unsupported ROLL version: 0x${version}`,
+                    },
+                };
+            }
+
+            // Need at least 73 bytes (32 + 4 + 32 + 1 = 69 bytes after version)
+            if (rollStack.remainingHex.length < 138) {
+                return {
+                    lokadId,
+                    app: 'ROLL Payout',
+                    isValid: false,
+                    action: {
+                        stack: push,
+                        decoded: 'Invalid ROLL payout data length',
+                    },
+                };
+            }
+
+            // Read betTxid (32 bytes)
+            const betTxid = consume(rollStack, 32);
+
+            // Read roll (u32, 4 bytes, little-endian)
+            const rollBytes = fromHex(consume(rollStack, 4));
+            const roll = new Bytes(rollBytes).readU32();
+
+            // Read seedHash (32 bytes)
+            const seedHash = consume(rollStack, 32);
+
+            // Read result (1 byte, UTF-8)
+            const resultByte = fromHex(consume(rollStack, 1));
+            const result = bytesToStr(resultByte);
+
+            const isValid = ['W', 'L', 'I'].includes(result);
+
+            return {
+                lokadId,
+                app: 'ROLL Payout',
+                isValid,
+                action: {
+                    betTxid,
+                    roll,
+                    seedHash,
+                    result,
+                },
+            };
+        }
+        case opReturn.appPrefixesHex.trophy: {
+            // EDJ.com game payout: lokad (4 bytes) + numTxs (u32 LE) + potAtoms (u64 LE) + winnerOddsBps (u32 LE) + winnerTxid (32 bytes)
+            const trophyStack = { remainingHex: emppStack.remainingHex };
+            const TROPHY_DATA_LEN = 4 + 8 + 4 + 32; // 48 bytes = 96 hex chars
+
+            if (trophyStack.remainingHex.length < TROPHY_DATA_LEN * 2) {
+                return {
+                    lokadId,
+                    app: 'EDJ.com Payout',
+                    isValid: false,
+                    action: {
+                        stack: push,
+                        decoded: 'Invalid trophy data length',
+                    },
+                };
+            }
+
+            const numTxs = new Bytes(
+                fromHex(consume(trophyStack, 4)),
+            ).readU32();
+            const potAtoms = new Bytes(
+                fromHex(consume(trophyStack, 8)),
+            ).readU64();
+            const winnerOddsBps = new Bytes(
+                fromHex(consume(trophyStack, 4)),
+            ).readU32();
+            const winnerTxid = consume(trophyStack, 32);
+
+            const isValid =
+                winnerOddsBps <= 10000 &&
+                numTxs >= 1 &&
+                potAtoms >= 0n &&
+                winnerTxid.length === 64;
+
+            return {
+                lokadId,
+                app: 'EDJ.com Payout',
+                isValid,
+                action: {
+                    numTxs,
+                    potAtoms,
+                    winnerOddsBps,
+                    winnerTxid,
+                },
+            };
+        }
+        default: {
+            // Unknown EMPP action
+            return {
+                lokadId,
+                app: 'unknown',
+                action: {
+                    stack: push,
+                    decoded: bytesToStr(fromHex(push)),
+                },
+            };
+        }
+    }
+};
+
+/**
+ * Parse an empp_raw input according to known EMPP specs
+ * The returned output is used to generate a preview of the tx on the SendXec screen
+ * @param emppRaw hex string of EMPP push (without OP_RETURN or OP_RESERVED)
+ * @returns {object} {protocol: <protocolLabel>, data: <parsedData>}
+ */
+export const parseEmppRaw = (emppRaw: string): ParsedOpReturnRaw => {
+    // Initialize return data
+    const parsed = { protocol: 'Unknown Protocol', data: emppRaw };
+
+    // Validate hex format
+    if (getEmppRawError(emppRaw) !== false) {
+        return parsed;
+    }
+
+    // Try to parse using getEmppAppAction
+    // Wrap in try-catch to handle errors gracefully (e.g., invalid hex, insufficient bytes)
+    let emppAction: AppAction | undefined;
+    try {
+        emppAction = getEmppAppAction(emppRaw);
+    } catch {
+        // If parsing fails, return default "Unknown Protocol"
+        return parsed;
+    }
+
+    if (typeof emppAction !== 'undefined' && emppAction.action) {
+        const action = emppAction.action;
+        switch (emppAction.app) {
+            case 'Cashtab Msg': {
+                if (emppAction.isValid && 'msg' in action) {
+                    parsed.protocol = 'Cashtab Msg';
+                    parsed.data = (action as { msg: string }).msg;
+                } else {
+                    parsed.protocol = 'Invalid Cashtab Msg';
+                }
+                return parsed;
+            }
+            case 'Solana Address': {
+                if (emppAction.isValid && 'solAddr' in action) {
+                    parsed.protocol = 'Firma Withdrawal';
+                    parsed.data = (action as { solAddr: string }).solAddr;
+                } else {
+                    parsed.protocol = 'Invalid Firma Withdrawal';
+                }
+                return parsed;
+            }
+            case 'PayButton': {
+                if (
+                    emppAction.isValid &&
+                    'data' in action &&
+                    'nonce' in action
+                ) {
+                    parsed.protocol = 'PayButton';
+                    const paybuttonAction = action as {
+                        data: string;
+                        nonce: string;
+                    };
+                    parsed.data = `${
+                        paybuttonAction.data !== ''
+                            ? `Data: ${paybuttonAction.data}${
+                                  paybuttonAction.nonce !== '' ? ', ' : ''
+                              }`
+                            : ''
+                    }${
+                        paybuttonAction.nonce !== ''
+                            ? `Nonce: ${paybuttonAction.nonce}`
+                            : ''
+                    }`;
+                } else {
+                    parsed.protocol = 'Invalid PayButton';
+                }
+                return parsed;
+            }
+            case 'DICE Bet': {
+                if (
+                    emppAction.isValid &&
+                    'minValue' in action &&
+                    'maxValue' in action
+                ) {
+                    parsed.protocol = 'DICE Bet';
+                    const diceAction = action as {
+                        minValue: number;
+                        maxValue: number;
+                    };
+                    parsed.data = `Range: [${diceAction.minValue}, ${diceAction.maxValue}]`;
+                } else {
+                    parsed.protocol = 'Invalid DICE Bet';
+                }
+                return parsed;
+            }
+            case 'ROLL Payout': {
+                if (
+                    emppAction.isValid &&
+                    'betTxid' in action &&
+                    'roll' in action &&
+                    'seedHash' in action &&
+                    'result' in action
+                ) {
+                    parsed.protocol = 'ROLL Payout';
+                    const rollAction = action as {
+                        betTxid: string;
+                        roll: number;
+                        seedHash: string;
+                        result: string;
+                    };
+                    const resultLabel =
+                        rollAction.result === 'W'
+                            ? 'Win'
+                            : rollAction.result === 'L'
+                              ? 'Loss'
+                              : 'Invalid';
+                    parsed.data = `Bet: ${rollAction.betTxid.slice(0, 8)}...${rollAction.betTxid.slice(-8)}, Roll: ${rollAction.roll}, Result: ${resultLabel}`;
+                } else {
+                    parsed.protocol = 'Invalid ROLL Payout';
+                }
+                return parsed;
+            }
+            case 'EDJ.com Payout': {
+                if (
+                    emppAction.isValid &&
+                    'numTxs' in action &&
+                    'potAtoms' in action &&
+                    'winnerOddsBps' in action &&
+                    'winnerTxid' in action
+                ) {
+                    parsed.protocol = 'EDJ.com Payout';
+                    const trophyAction = action as {
+                        numTxs: number;
+                        potAtoms: bigint;
+                        winnerOddsBps: number;
+                        winnerTxid: string;
+                    };
+                    const oddsPct = (trophyAction.winnerOddsBps / 100).toFixed(
+                        2,
+                    );
+                    parsed.data = `${trophyAction.numTxs} entries, $${(Number(trophyAction.potAtoms) / 10000).toFixed(2)} pot, ${oddsPct}% odds, winning tx: ${trophyAction.winnerTxid.slice(0, 3)}...${trophyAction.winnerTxid.slice(-3)}`;
+                } else {
+                    parsed.protocol = 'Invalid EDJ.com Payout';
+                }
+                return parsed;
+            }
+            default: {
+                // Unknown app from getEmppAppAction
+                return parsed;
+            }
+        }
+    }
+
+    // Unknown protocol
+    return parsed;
+};
+
+/**
+ * Parse input_data_raw (Cashtab-only BIP21 param for p2shInputData).
+ * Same format as empp_raw: lokad (4 bytes) + data. Used for P2SH input data.
+ * @param inputDataRaw hex string (first 4 bytes = lokad, rest = data)
+ * @returns {object} {protocol: <protocolLabel>, data: <parsedData>}
+ */
+export const parseInputDataRaw = (inputDataRaw: string): ParsedOpReturnRaw => {
+    const parsed = { protocol: 'Unknown Protocol', data: inputDataRaw };
+
+    if (getInputDataRawError(inputDataRaw) !== false) {
+        return parsed;
+    }
+
+    // Same format as empp_raw - reuse getEmppAppAction
+    let emppAction: AppAction | undefined;
+    try {
+        emppAction = getEmppAppAction(inputDataRaw);
+    } catch {
+        return parsed;
+    }
+
+    if (typeof emppAction !== 'undefined' && emppAction.action) {
+        const action = emppAction.action;
+        switch (emppAction.app) {
+            case 'DICE Bet': {
+                if (
+                    emppAction.isValid &&
+                    'minValue' in action &&
+                    'maxValue' in action
+                ) {
+                    parsed.protocol = 'DICE Bet';
+                    const diceAction = action as {
+                        minValue: number;
+                        maxValue: number;
+                    };
+                    parsed.data = `Range: [${diceAction.minValue}, ${diceAction.maxValue}]`;
+                } else {
+                    parsed.protocol = 'Invalid DICE Bet';
+                }
+                return parsed;
+            }
+            case 'ROLL Payout': {
+                if (
+                    emppAction.isValid &&
+                    'betTxid' in action &&
+                    'roll' in action &&
+                    'seedHash' in action &&
+                    'result' in action
+                ) {
+                    parsed.protocol = 'ROLL Payout';
+                    const rollAction = action as {
+                        betTxid: string;
+                        roll: number;
+                        seedHash: string;
+                        result: string;
+                    };
+                    const resultLabel =
+                        rollAction.result === 'W'
+                            ? 'Win'
+                            : rollAction.result === 'L'
+                              ? 'Loss'
+                              : 'Invalid';
+                    parsed.data = `Bet: ${rollAction.betTxid.slice(0, 8)}...${rollAction.betTxid.slice(-8)}, Roll: ${rollAction.roll}, Result: ${resultLabel}`;
+                } else {
+                    parsed.protocol = 'Invalid ROLL Payout';
+                }
+                return parsed;
+            }
+            default: {
+                // Show lokad for unknown protocols
+                const lokadHex = inputDataRaw.slice(0, 8);
+                try {
+                    const lokadStr = Buffer.from(lokadHex, 'hex').toString(
+                        'utf8',
+                    );
+                    parsed.protocol = `Input data (lokad: ${lokadStr})`;
+                } catch {
+                    parsed.protocol = `Input data (lokad: ${lokadHex})`;
+                }
+                parsed.data = `${inputDataRaw.length / 2} bytes`;
+                return parsed;
+            }
+        }
+    }
+
+    return parsed;
+};
+
+export const getXecxAppAction = (xecxEmppStack: {
+    remainingHex: string;
+}): XecxAction | UnknownAction => {
+    // Store this because we return it if we get unexpected spec
+    const fullXecxEmppPush = xecxEmppStack.remainingHex;
+
+    const supportedVersion = '00';
+
+    // Version is 1 byte
+    const version = consume(xecxEmppStack, 1);
+    const VALID_LENGTH_VERSION_0_XECX_EMPP = 54;
+    if (
+        version !== supportedVersion ||
+        fullXecxEmppPush.length !== VALID_LENGTH_VERSION_0_XECX_EMPP
+    ) {
+        // xecx lokadId EMPP push with unsupported version or bad v0 data
+        // Return full push
+        return {
+            stack: fullXecxEmppPush,
+            decoded: Buffer.from(fullXecxEmppPush, 'hex').toString('utf8'),
+        };
+    }
+
+    // Get minBalanceTokenSatoshisToReceivePaymentThisRoundHexStr as 1st push u64
+    const BYTES_U64 = 8;
+    const minBalanceTokenSatoshisToReceivePaymentThisRound = Number(
+        new Bytes(fromHex(consume(xecxEmppStack, BYTES_U64))).readU64(),
+    );
+
+    // Get eligibleTokenSatoshis as 2nd push u64
+    const eligibleTokenSatoshis = Number(
+        new Bytes(fromHex(consume(xecxEmppStack, BYTES_U64))).readU64(),
+    );
+
+    // Get ineligibleTokenSatoshis as 3rd push u64
+    const ineligibleTokenSatoshis = Number(
+        new Bytes(fromHex(consume(xecxEmppStack, BYTES_U64))).readU64(),
+    );
+
+    // Get excludedHoldersCount as 4th push u16
+    const BYTES_U16 = 2;
+    const excludedHoldersCount = new Bytes(
+        fromHex(consume(xecxEmppStack, BYTES_U16)),
+    ).readU16();
+
+    return {
+        minBalanceTokenSatoshisToReceivePaymentThisRound,
+        eligibleTokenSatoshis,
+        ineligibleTokenSatoshis,
+        excludedHoldersCount,
+    };
+};

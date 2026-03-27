@@ -1,0 +1,6 @@
+# Suppress warnings triggered in dependencies
+leak:libcrypto
+leak:libQt5Widgets
+
+# false-positive due to use of secure_allocator<>
+leak:GetRNGState

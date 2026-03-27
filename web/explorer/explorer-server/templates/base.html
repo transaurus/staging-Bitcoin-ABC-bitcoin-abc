@@ -1,0 +1,220 @@
+<!-- Copyright (c) 2025 The Bitcoin developers -->
+<!-- Distributed under the MIT software license, see the accompanying -->
+<!-- file COPYING or http://www.opensource.org/licenses/mit-license.php. -->
+<!DOCTYPE html>
+<html class="no-js" lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>eCash Block Explorer</title>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-1J9LWHQ3QK"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+
+            function gtag() {
+                dataLayer.push(arguments);
+            }
+            gtag('js', new Date());
+
+            gtag('config', 'G-1J9LWHQ3QK');
+        </script>
+        <meta name="description"
+              content="A no-frills eCash explorer focused on speed and providing in-depth information" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta property="og:title" content="eCash Block Explorer" />
+        <meta property="og:type" content="" />
+        <meta property="og:url" content="" />
+        <meta property="og:image"
+              content="https://explorer.e.cash/assets/ecash-explorer-card.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="eCash Block Explorer" />
+        <meta name="twitter:description"
+              content="A no-frills eCash explorer focused on speed and providing in-depth information" />
+        <meta name="twitter:image"
+              content="https://explorer.e.cash/assets/ecash-explorer-card.png" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="stylesheet"
+              href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css"
+              integrity="sha512-8bHTC73gkZ7rZ7vpqUQThUDhqcNFyYi2xgDgPDHc+GXVGHXq+xPjynxIopALmOPqzo9JZj0k6OqqewdGO3EsrQ=="
+              crossorigin="anonymous"
+              referrerpolicy="no-referrer" />
+        <link rel="stylesheet"
+              href="/code/styles/index.css?hash={{ hashes.css_index }}" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=Poppins:wght@400;600&display=swap"
+              rel="stylesheet" />
+        <link rel="stylesheet"
+              href="https://cdn.datatables.net/2.1.3/css/dataTables.dataTables.min.css" />
+        <link rel="stylesheet"
+              href="https://cdn.datatables.net/responsive/3.0.2/css/responsive.dataTables.min.css" />
+        <link rel="stylesheet"
+              href="https://cdn.datatables.net/buttons/3.1.1/css/buttons.dataTables.min.css" />
+        <link rel="manifest" href="site.webmanifest" />
+        <meta name="theme-color" content="#fafafa" />
+        <script src="https://code.jquery.com/jquery-3.1.1.min.js"
+                integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+                crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.js"
+                integrity="sha512-dqw6X88iGgZlTsONxZK9ePmJEFrmHwpuMrsUChjAw1mRUhUITE5QU9pkcSox+ynfLhL15Sv2al5A0LVyDCmtUw=="
+                crossorigin="anonymous"
+                referrerpolicy="no-referrer"></script>
+        <script type="text/javascript"
+                src="https://cdn.datatables.net/2.1.3/js/dataTables.min.js"></script>
+        <script type="text/javascript"
+                src="https://cdn.datatables.net/responsive/3.0.2/js/dataTables.responsive.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment-with-locales.min.js"
+                integrity="sha512-42PE0rd+wZ2hNXftlM78BSehIGzezNeQuzihiBCvUEB3CVxHvsShF86wBWwQORNxNINlBPuq7rG4WWhNiTVHFg=="
+                crossorigin="anonymous"
+                referrerpolicy="no-referrer"></script>
+        <script type="text/javascript"
+                src="/code/common.js?hash={{ hashes.js_common }}"></script>
+        <script type="text/javascript"
+                src="/code/txsRender.js?hash={{ hashes.js_txs_render }}"></script>
+        <script type="text/javascript"
+                src="https://cdn.datatables.net/buttons/3.1.1/js/dataTables.buttons.min.js"></script>
+        <script type="text/javascript"
+                src="https://cdn.datatables.net/buttons/3.1.1/js/buttons.html5.min.js"></script>
+    </head>
+    <body class="{% block body_classes %}{% endblock %}">
+        <div id="main">
+            <div class="header-ctn">
+                <div class="logo-selector-ctn">
+                    <a class="header-logo" href="/">
+                        <img class="logo" src="/assets/logo.png" />
+                    </a>
+                    {% if network_selector %}<div id="network-select-container"></div>{% endif %}
+                    <div class="mempool-select-container desktop-mempool-selector"></div>
+                </div>
+                <div class="search-ctn">
+                    <div class="nav-message-container desktop-nav-message"></div>
+                    <div id="search-box" class="ui transparent icon input">
+                        <input id="search-bar"
+                               type="text"
+                               placeholder="Search blocks, transactions, addresses, tokens..."
+                               onchange="searchBarChange()"
+                               onkeyup="searchBarChange()" />
+                        <i id="#search-button" class="search link icon" onclick="searchButton()"></i>
+                    </div>
+                    <button class="mobile-menu-toggle"
+                            id="mobile-menu-toggle"
+                            onclick="toggleMobileMenu()"
+                            aria-label="Toggle menu">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                </div>
+            </div>
+            <div class="mobile-menu" id="mobile-menu">
+                <div class="mempool-select-container"></div>
+                <div class="nav-message-container"></div>
+            </div>
+            {% block content %}{% endblock %}
+        </div>
+        <div id="footer">
+            For more information visit&nbsp;<a href="https://e.cash" target="_blank">e.Cash</a>&nbsp;| ©
+            <script>
+                document.write(new Date().getFullYear());
+            </script>
+            Bitcoin ABC
+        </div>
+    </body>
+    <script>
+        function toggleOptions() {
+            const optionCtn = document.querySelector('.option');
+            const arrow = document.querySelector('.down-arrow');
+
+            if (optionCtn.style.display === 'block') {
+                optionCtn.style.display = 'none';
+                arrow.classList.remove('rotate-arrow');
+            } else {
+                optionCtn.style.display = 'block';
+                arrow.classList.add('rotate-arrow');
+            }
+        }
+
+        function renderNetworkSelector() {
+            const networkSelectContainer = document.getElementById('network-select-container');
+            const currentHostName = window.location.hostname;
+
+            let currentNetwork = '';
+            let switchToText = '';
+            let switchToLink = '';
+
+            if (currentHostName === 'explorer.e.cash') {
+                currentNetwork = 'Mainnet';
+                switchToText = 'Testnet';
+                switchToLink = 'https://texplorer.e.cash';
+            } else if (currentHostName === 'texplorer.e.cash') {
+                currentNetwork = 'Testnet';
+                switchToText = 'Mainnet';
+                switchToLink = 'https://explorer.e.cash';
+            } else {
+                // Don't show the selector if the host is none of the expected ones
+                return;
+            }
+
+            networkSelectContainer.innerHTML = `
+            <div class="network-select-ctn" onclick="toggleOptions()">
+                <div class="selection">
+                    ${currentNetwork}
+                    <div class="down-arrow"></div>
+                </div>
+                <a href="${switchToLink}" class="option">${switchToText}</a>
+            </div>
+        `;
+        }
+
+        function renderMempoolSelector() {
+            const mempoolSelectContainers = document.querySelectorAll('.mempool-select-container');
+
+            let switchToText = '';
+            let switchToLink = '';
+
+            const baseUrl = window.location.protocol + '//' + window.location.host;
+
+            let html = '';
+            if (window.location.pathname === '/mempool') {
+                html = `<a href="${baseUrl}">Block Explorer</a>`;
+            } else {
+                html = `<a href="${baseUrl}/mempool">Mempool Explorer</a>`;
+            }
+
+            mempoolSelectContainers.forEach(container => {
+                container.innerHTML = html;
+            });
+        }
+
+        function renderNavMessage() {
+            const navMessageContainers = document.querySelectorAll('.nav-message-container');
+            const currentHostName = window.location.hostname;
+
+            let html = '';
+            if (currentHostName === 'texplorer.e.cash') {
+                html = `<a href="/testnet-faucet">Get testnet tokens</a>`;
+            } else {
+                html = `<a href="https://e.cash" target="_blank">Learn more about e.Cash</a>`;
+            }
+
+            navMessageContainers.forEach(container => {
+                container.innerHTML = html;
+            });
+        }
+
+        function toggleMobileMenu() {
+            const mobileMenu = document.getElementById('mobile-menu');
+            const toggleButton = document.getElementById('mobile-menu-toggle');
+            if (mobileMenu && toggleButton) {
+                mobileMenu.classList.toggle('active');
+                toggleButton.classList.toggle('active');
+            }
+        }
+
+        window.onload = function() {
+            renderNetworkSelector();
+            renderMempoolSelector();
+            renderNavMessage();
+        };
+    </script>
+</html>

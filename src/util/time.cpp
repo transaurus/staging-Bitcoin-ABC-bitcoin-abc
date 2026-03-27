@@ -1,0 +1,139 @@
+// Copyright (c) 2009-2010 Satoshi Nakamoto
+// Copyright (c) 2009-present The Bitcoin Core developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#include <util/time.h>
+
+#include <compat/compat.h>
+#include <util/check.h>
+#include <util/strencodings.h>
+
+#include <tinyformat.h>
+
+#include <atomic>
+#include <chrono>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <thread>
+
+void UninterruptibleSleep(const std::chrono::microseconds &n) {
+    std::this_thread::sleep_for(n);
+}
+
+//! For testing
+static std::atomic<int64_t> nMockTime(0);
+
+NodeClock::time_point NodeClock::now() noexcept {
+    const std::chrono::seconds mocktime{
+        nMockTime.load(std::memory_order_relaxed)};
+
+    const auto ret{mocktime.count()
+                       ? mocktime
+                       : std::chrono::system_clock::now().time_since_epoch()};
+    assert(ret > 0s);
+    return time_point{ret};
+};
+
+template <typename T> static T GetSystemTime() {
+    const auto now = std::chrono::duration_cast<T>(
+        std::chrono::system_clock::now().time_since_epoch());
+    assert(now.count() > 0);
+    return now;
+}
+
+void SetMockTime(int64_t nMockTimeIn) {
+    Assert(nMockTimeIn >= 0);
+    nMockTime.store(nMockTimeIn, std::memory_order_relaxed);
+}
+
+void SetMockTime(std::chrono::seconds mock_time_in) {
+    nMockTime.store(mock_time_in.count(), std::memory_order_relaxed);
+}
+std::chrono::seconds GetMockTime() {
+    return std::chrono::seconds(nMockTime.load(std::memory_order_relaxed));
+}
+
+int64_t GetTimeMillis() {
+    return int64_t{GetSystemTime<std::chrono::milliseconds>().count()};
+}
+
+int64_t GetTime() {
+    return GetTime<std::chrono::seconds>().count();
+}
+
+// According to https://en.cppreference.com/w/cpp/chrono/year.html, the
+// valid year range is [-32767, 32767].
+// Rejecting values outside this year range guards against
+// a segfault (obeserved with GCC 13.3.0 + Debug build) for very negative
+// values (e.g. std::numeric_limits<int64_t>::min()), and is consistent
+// with the behavior of std::chrono::year_month_day::ok()
+static bool IsInvalidTimestamp(int64_t nTime) {
+    constexpr int64_t december_31st_32767{971890963199};
+    constexpr int64_t january_1st_minus32767{-1096193779200};
+    return nTime > december_31st_32767 || nTime < january_1st_minus32767;
+}
+
+std::string FormatISO8601DateTime(int64_t nTime) {
+    if (IsInvalidTimestamp(nTime)) {
+        return {};
+    }
+    const std::chrono::sys_seconds secs{std::chrono::seconds{nTime}};
+    const auto days{std::chrono::floor<std::chrono::days>(secs)};
+    const std::chrono::year_month_day ymd{days};
+    const std::chrono::hh_mm_ss hms{secs - days};
+    return strprintf("%04i-%02u-%02uT%02i:%02i:%02iZ", signed{ymd.year()},
+                     unsigned{ymd.month()}, unsigned{ymd.day()},
+                     hms.hours().count(), hms.minutes().count(),
+                     hms.seconds().count());
+}
+
+std::string FormatISO8601Date(int64_t nTime) {
+    if (IsInvalidTimestamp(nTime)) {
+        return {};
+    }
+    const std::chrono::sys_seconds secs{std::chrono::seconds{nTime}};
+    const auto days{std::chrono::floor<std::chrono::days>(secs)};
+    const std::chrono::year_month_day ymd{days};
+    return strprintf("%04i-%02u-%02u", signed{ymd.year()},
+                     unsigned{ymd.month()}, unsigned{ymd.day()});
+}
+
+std::optional<int64_t> ParseISO8601DateTime(std::string_view str) {
+    constexpr auto FMT_SIZE{std::string_view{"2000-01-01T01:01:01Z"}.size()};
+    if (str.size() != FMT_SIZE || str[4] != '-' || str[7] != '-' ||
+        str[10] != 'T' || str[13] != ':' || str[16] != ':' || str[19] != 'Z') {
+        return {};
+    }
+    const auto year{ToIntegral<uint16_t>(str.substr(0, 4))};
+    const auto month{ToIntegral<uint8_t>(str.substr(5, 2))};
+    const auto day{ToIntegral<uint8_t>(str.substr(8, 2))};
+    const auto hour{ToIntegral<uint8_t>(str.substr(11, 2))};
+    const auto min{ToIntegral<uint8_t>(str.substr(14, 2))};
+    const auto sec{ToIntegral<uint8_t>(str.substr(17, 2))};
+    if (!year || !month || !day || !hour || !min || !sec) {
+        return {};
+    }
+    const std::chrono::year_month_day ymd{std::chrono::year{*year},
+                                          std::chrono::month{*month},
+                                          std::chrono::day{*day}};
+    if (!ymd.ok()) {
+        return {};
+    }
+    const auto time{std::chrono::hours{*hour} + std::chrono::minutes{*min} +
+                    std::chrono::seconds{*sec}};
+    const auto tp{std::chrono::sys_days{ymd} + time};
+    return int64_t{TicksSinceEpoch<std::chrono::seconds>(tp)};
+}
+
+struct timeval MillisToTimeval(int64_t nTimeout) {
+    struct timeval timeout;
+    timeout.tv_sec = nTimeout / 1000;
+    timeout.tv_usec = (nTimeout % 1000) * 1000;
+    return timeout;
+}
+
+struct timeval MillisToTimeval(std::chrono::milliseconds ms) {
+    return MillisToTimeval(count_milliseconds(ms));
+}

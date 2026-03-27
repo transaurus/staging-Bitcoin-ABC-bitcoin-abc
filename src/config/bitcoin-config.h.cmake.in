@@ -1,0 +1,92 @@
+// Copyright (c) 2017 The Bitcoin developers
+
+#ifndef BITCOIN_CONFIG_BITCOIN_CONFIG_H
+#define BITCOIN_CONFIG_BITCOIN_CONFIG_H
+
+#define PACKAGE_NAME "${PACKAGE_NAME}"
+
+#define PACKAGE_BUGREPORT "${PACKAGE_BUGREPORT}"
+
+#define COPYRIGHT_YEAR "${COPYRIGHT_YEAR}"
+#define COPYRIGHT_HOLDERS "${COPYRIGHT_HOLDERS}"
+#define COPYRIGHT_HOLDERS_SUBSTITUTION "${COPYRIGHT_HOLDERS_SUBSTITUTION}"
+#define COPYRIGHT_HOLDERS_FINAL "${COPYRIGHT_HOLDERS_FINAL}"
+
+#cmakedefine HAVE_SYS_SELECT_H 1
+#cmakedefine HAVE_SYS_PRCTL_H 1
+
+#cmakedefine HAVE_DECL___BUILTIN_CLZ 1
+#cmakedefine HAVE_DECL___BUILTIN_CTZ 1
+#cmakedefine HAVE_DECL___BUILTIN_CTZL 1
+#cmakedefine HAVE_DECL___BUILTIN_CTZLL 1
+#cmakedefine HAVE_DECL___BUILTIN_POPCOUNT 1
+#cmakedefine HAVE_DECL___BUILTIN_SADDLL_OVERFLOW 1
+#cmakedefine HAVE_DECL___BUILTIN_SSUBLL_OVERFLOW 1
+
+#cmakedefine HAVE_MALLOPT_ARENA_MAX 1
+#cmakedefine HAVE_MALLOC_INFO 1
+
+#cmakedefine HAVE_DECL_SETSID 1
+#cmakedefine HAVE_DECL_STRNLEN 1
+#cmakedefine HAVE_DECL_FORK 1
+#cmakedefine HAVE_DECL_GETIFADDRS 1
+#cmakedefine HAVE_DECL_FREEIFADDRS 1
+#cmakedefine HAVE_GETENTROPY 1
+#cmakedefine HAVE_GETENTROPY_RAND 1
+#cmakedefine HAVE_SYS_GETRANDOM 1
+
+#cmakedefine HAVE_VM_VM_PARAM_H 1
+#cmakedefine HAVE_SYS_VMMETER_H 1
+#cmakedefine HAVE_SYS_RESOURCES_H 1
+#cmakedefine HAVE_SYSCTL 1
+
+#cmakedefine HAVE_SYSCTL_ARND 1
+
+#cmakedefine HAVE_SYSTEM 1
+
+#cmakedefine HAVE_LARGE_FILE_SUPPORT 1
+
+#cmakedefine HAVE_FUNC_ATTRIBUTE_VISIBILITY 1
+#cmakedefine HAVE_FUNC_ATTRIBUTE_DLLEXPORT 1
+#cmakedefine HAVE_POSIX_FALLOCATE 1
+
+#cmakedefine HAVE_FDATASYNC 1
+
+#cmakedefine ENABLE_BIP70 1
+#cmakedefine ENABLE_WALLET 1
+#cmakedefine ENABLE_ZMQ 1
+
+/* Define if the Chronik indexer should be compiled in. */
+#cmakedefine01 ENABLE_CHRONIK
+
+/* Define if QR support should be compiled in */
+#cmakedefine USE_QRCODE 1
+
+/* UPnP support not compiled if undefined */
+#cmakedefine ENABLE_UPNP
+#ifdef ENABLE_UPNP
+/* Value (0 or 1) determines the UPnP default state at startup. */
+#cmakedefine01 USE_UPNP
+#endif
+
+/* NAT-PMP support not compiled if undefined */
+#cmakedefine ENABLE_NATPMP
+#ifdef ENABLE_NATPMP
+/* Value (0 or 1) determines the NATPMP default state at startup. */
+#cmakedefine01 USE_NATPMP
+#endif
+
+/* Define if QtDBus support should be enabled */
+#cmakedefine USE_DBUS 1
+
+#cmakedefine HAVE___INT128 1
+
+#cmakedefine ENABLE_TRACING 1
+
+/* Define to 1 if strerror_r returns char *. */
+#cmakedefine STRERROR_R_CHAR_P 1
+
+/* Define to 1 if platform supports unix domain sockets */
+#cmakedefine HAVE_SOCKADDR_UN 1
+
+#endif // BITCOIN_BITCOIN_CONFIG_H

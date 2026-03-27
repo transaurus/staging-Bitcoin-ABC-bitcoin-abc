@@ -1,0 +1,21 @@
+Checks: '
+-*,
+boost-use-to-string,
+readability-const-return-type,
+readability-braces-around-statements,
+readability-redundant-declaration,
+bugprone-argument-comment,
+misc-unused-using-decls,
+modernize-use-default-member-init,
+performance-*,
+-performance-inefficient-string-concatenation,
+-performance-no-int-to-ptr,
+-performance-noexcept-move-constructor,
+-performance-unnecessary-value-param,
+-performance-enum-size,
+-performance-avoid-endl,
+'
+FormatStyle: file
+CheckOptions:
+ - key: performance-move-const-arg.CheckTriviallyCopyableMove
+   value: false

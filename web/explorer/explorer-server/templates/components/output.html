@@ -1,0 +1,86 @@
+<!-- Copyright (c) 2025 The Bitcoin developers -->
+<!-- Distributed under the MIT software license, see the accompanying -->
+<!-- file COPYING or http://www.opensource.org/licenses/mit-license.php. -->
+{% macro render(
+    index,
+    output,
+    tx,
+    sats_addr_prefix,
+    tokens_addr_prefix,
+    token_icon_url) %}
+    {% let token_entry = output.token|find_token_entry(token_entries) %}
+    {% let genesis_info = token_entry|token_entry_genesis_info %}
+    {% let
+    destination = output.output_script|cashaddr_from_script(sats_addr_prefix) %}
+    {% let decoded_output_script = output.output_script|get_script %}
+    <div>
+        <div class="output-row">
+            <div class="output-row-section1">
+                {% match destination %}
+                    {% when Destination::Address with (address) %}
+                    <div class="address-and-copy">
+                        <div class="input-hex input-hex-address">
+                            <a href="/address/{{ address.as_str() }}">{{ address.as_str() }}</a>
+                        </div>
+                        <div class="copy-btn" onclick="copyString('{{ address.as_str() }}')">
+                            <span class="tooltiptext">Copy to clipboard</span>
+                        </div>
+                    </div>
+                    {% when Destination::Nulldata with (_ops) %}
+                    OP_RETURN data
+                    {% when Destination::P2PK with (pubkey) %}
+                    Pubkey: {{ pubkey|hexify_u8_vector }}
+                    {% when Destination::Unknown with (_bytes) %}
+                    Unknown
+                {% endmatch %}
+                <div class="input-hex">
+                    {% match output.token %}
+                        {% when Some with (slp_token) %}
+                        {% match genesis_info %}
+                            {% when Some with (genesis_info) %}
+                            {% if slp_token.atoms > 0 || slp_token.is_mint_baton %}
+                                {% if slp_token.is_mint_baton %}
+                                    <div class="ui green horizontal label">Mint baton</div>
+                                {% else %}
+                                    {{ slp_token.atoms|to_i128|render_token_amount(genesis_info.decimals) |safe }}
+                                    {{ genesis_info.token_ticker|string_from_lossy_utf8 }}
+                                {% endif %}
+                            {% endif %}
+                            {% match token_entry %}
+                                {% when Some with (token_entry) %}
+                                <img src="{{ token_icon_url }}/32/{{ token_entry.token_hex }}.png" />
+                                {% when None %}
+                            {% endmatch %}
+                            <div>
+                                <small>{{ output.sats|render_sats|safe }} XEC</small>
+                            </div>
+                            {% when None %}
+                            {{ output.sats|render_sats|safe }} XEC
+                        {% endmatch %}
+                        {% when None %}
+                        {{ output.sats|render_sats|safe }} XEC
+                    {% endmatch %}
+                </div>
+            </div>
+            <div class="output-row-section2">
+                <div>{{ index }}</div>
+                <div>
+                    {% match output.spent_by %}
+                        {% when Some with (outpoint) %}
+                        <a href="/tx/{{ outpoint.txid|to_le_hex }}">
+                            <i class="icon sign out"></i>
+                        </a>
+                        {% when None %}
+                        <i class="disabled icon sign out"></i>
+                    {% endmatch %}
+                </div>
+            </div>
+        </div>
+        <div class="tx-transaction__script-data display-none output-script-text">
+            <h4>Script Hex</h4>
+            <div class="hex">{{ output.output_script|hexify_u8_vector }}</div>
+            <h4 class="margintopscript">Script Decoded</h4>
+            <div class="hex">{{ decoded_output_script }}</div>
+        </div>
+    </div>
+{% endmacro %}

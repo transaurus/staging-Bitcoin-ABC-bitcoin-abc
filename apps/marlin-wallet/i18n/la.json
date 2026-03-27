@@ -1,0 +1,93 @@
+{
+    "app": {
+        "back": "Regredī",
+        "cancel": "Cancellāre",
+        "close": "Claudere",
+        "edit": "Ēmendāre",
+        "error": "Error",
+        "loading": "Onerāns...",
+        "save": "Servāre",
+        "title": "Marlin Wallet"
+    },
+    "camera": {
+        "manualEntry": "Manus Īnscrīptiō",
+        "noCameraAvailable": "Camera Nōn Praestō",
+        "noCameraDescription": "Camera accessus in hōc māchinā nōn praestō est. Ūte \"Manus Īnscrīptiō\" bullam īnfrā ad īnscrībendum īnscrīptiōnem.",
+        "title": "Camera"
+    },
+    "errors": {
+        "anErrorOccurred": "Error accidit",
+        "failedToLoadWallet": "Crumēna onerāre nōn potuit",
+        "failedToSendTransaction": "Trānsāctiōnem mittere nōn potuit",
+        "insufficientFunds": "Pecūnia nōn sufficit",
+        "invalidAddress": "Īnscrīptiō invalida",
+        "transactionFailed": "Trānsāctiō dēfēcit"
+    },
+    "history": {
+        "loadingTransactions": "Trānsāctiōnēs onerāns...",
+        "noTransactions": "Nūlla trānsāctiō",
+        "title": "Trānsāctiō Historia",
+        "viewInExplorer": "Vidēre in Explōrātōre"
+    },
+    "loading": {
+        "authenticationRequired": "Authenticatio requīritur"
+    },
+    "main": {
+        "generatingWallet": "Crumēnam generāns...",
+        "history": "Historia",
+        "scanQRCode": "QR Cōdice Scannare",
+        "settings": "Optiōnēs",
+        "title": "Marlin Wallet",
+        "yourReceivingAddress": "Tua Īnscrīptiō Recipiendī"
+    },
+    "mnemonic": {
+        "clearAll": "Omnia Dēlēre",
+        "editMnemonicText": "Mnemonicum Ēmendāre",
+        "enterMnemonic": "Īnscrībe tuam 12-verbōrum recuperātiōnis phrasim",
+        "failedToSave": "Mnemonicum servāre nōn potuit. Quaesō iterum tentā.",
+        "invalidMnemonic": "Mnemonicum invalidum. Quaesō īnscrībe validam 12-verbōrum recuperātiōnis phrasim.",
+        "mnemonicSaved": "Mnemonicum fēlīciter servātum est",
+        "thisWillReplaceWallet": "Hoc tuam praesentem crumēnam substituet."
+    },
+    "native": {
+        "closeWallet": "Crumēnam claudere",
+        "authenticateToStore": "Authenticare ad servandum tuam crumēnā clāvīs prīvāta",
+        "authenticateToStoreDescription": "Hoc requīritur ad servandum tuam clāvīs prīvāta ad īnstrūmentī sēcūrum repositum",
+        "authenticateToAccess": "Authenticare ad accēdendum tuam crumēnā",
+        "authenticateToAccessDescription": "Hoc requīritur ad onerandum tuam clāvīs prīvāta ex secūrī repositiō",
+        "paymentSent": "Solūtiō missa!",
+        "returningToPaymentSite": "Revertēns ad solūtiōnis pāginam..."
+    },
+    "paybutton": {
+        "title": "PayButton"
+    },
+    "send": {
+        "amount": "Summa",
+        "cancel": "Cancellāre",
+        "enterAmount": "Summam Īnscrībere",
+        "holdToSend": "Tenē ad Mittendum",
+        "max": "Max",
+        "min": "Min",
+        "networkFee": "Rēte Mercēs",
+        "recipientAddress": "Recipientis Īnscrīptiō",
+        "recipientAddressPlaceholder": "Īnscrībe eCash īnscrīptiōnem",
+        "send": "Mittere",
+        "sending": "Mittēns...",
+        "title": "Mittere",
+        "total": "Summa"
+    },
+    "settings": {
+        "editMnemonic": "Mnemonicum Ēmendāre",
+        "fiatCurrency": "Fiat Monēta",
+        "fiatCurrencyDescription": "Ēlige fīat monētam ad ūtendum prō pretiō ostendendō et conversiōnibus.",
+        "language": "Lingua",
+        "languageDescription": "Ēlige linguam prō applicātiōnis interfacie.",
+        "requireHoldToSend": "Requīrere Tenē ad Mittendum",
+        "requireHoldToSendDescription": "Cum activatum est, dēbēs tenēre Mittere bullam per 1 secundum ad cōnfīrmandum trānsāctiōnem.",
+        "title": "Optiōnēs",
+        "useFiatAsPrimary": "Ūtere Fīat ut Prīmārium Crēditum",
+        "useFiatAsPrimaryDescription": "Cum activatum est, ostendit Fīat ut prīmārium crēditum et XEC ut secundārium.",
+        "walletMnemonic": "Crumēna Mnemonicum",
+        "walletMnemonicDescription": "Tua 12-verbōrum recuperātiōnis phrasis. Certus estō ut eam secūre subservas!"
+    }
+}

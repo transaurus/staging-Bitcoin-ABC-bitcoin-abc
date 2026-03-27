@@ -1,0 +1,7 @@
+# packaged dependencies
+/node_modules
+/coverage
+
+# generated files
+/docs
+/.nyc_output

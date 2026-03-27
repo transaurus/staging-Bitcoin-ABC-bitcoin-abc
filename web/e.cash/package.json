@@ -1,0 +1,44 @@
+{
+  "name": "e.cash",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "dependencies": {
+    "@splinetool/react-spline": "^4.0.0",
+    "chronik-client": "file:../../modules/chronik-client",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.23.26",
+    "motion": "^12.23.26",
+    "next": "16.0.10",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-syntax-highlighter": "^16.1.0",
+    "sharp": "^0.34.3",
+    "tailwind-merge": "^3.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.7.0",
+    "@testing-library/react": "^16.3.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "babel-jest": "^30.0.5",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^30.0.5",
+    "jest-environment-jsdom": "^30.0.5",
+    "prettier": "^3.7.4",
+    "prettier-plugin-tailwindcss": "^0.7.1",
+    "tailwindcss": "^4",
+    "typescript": "^5.9.3"
+  }
+}

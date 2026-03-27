@@ -1,0 +1,46 @@
+{
+    "name": "chronik-client",
+    "version": "4.1.0",
+    "description": "A client for accessing the Chronik Indexer API",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "author": "Tobias Ruck",
+    "license": "MIT",
+    "scripts": {
+        "build-proto": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=proto/ ../../chronik/chronik-proto/proto/chronik.proto -I=../../chronik/chronik-proto/proto/ --ts_proto_opt=esModuleInterop=true --ts_proto_opt=forceLong=bigint",
+        "build": "tsc",
+        "build-docs": "typedoc --out docs index.ts",
+        "test": "mocha -r ts-node/register test/test.ts",
+        "integration-tests": "mocha -j1 -r ts-node/register test/integration/*.ts",
+        "test-long": "mocha -r ts-node/register test/test.ts --timeout 1000000000",
+        "format": "prettier --write .",
+        "lint": "eslint . --ext .js,.jsx,.ts,.tsx && prettier --check .",
+        "prepublish": "pnpm run build"
+    },
+    "devDependencies": {
+        "@types/chai": "^4.2.22",
+        "@types/chai-as-promised": "^7.1.4",
+        "@types/long": "^4.0.2",
+        "@types/mocha": "^10.0.10",
+        "chai": "^4.3.4",
+        "chai-as-promised": "^7.1.1",
+        "mocha": "^11.7.5",
+        "mocha-junit-reporter": "^2.2.1",
+        "mocha-suppress-logs": "^0.6.0",
+        "prettier": "^3.7.4",
+        "prettier-plugin-organize-imports": "^4.3.0",
+        "ts-node": "^10.4.0",
+        "ts-proto": "^1.92.1",
+        "typedoc": "^0.22.10",
+        "typescript": "^5.9.3"
+    },
+    "dependencies": {
+        "@types/ws": "^8.2.1",
+        "axios": "^1.6.3",
+        "ecashaddrjs": "file:../ecashaddrjs",
+        "isomorphic-ws": "^4.0.1",
+        "long": "^4.0.0",
+        "protobufjs": "^6.8.8",
+        "ws": "^8.3.0"
+    }
+}

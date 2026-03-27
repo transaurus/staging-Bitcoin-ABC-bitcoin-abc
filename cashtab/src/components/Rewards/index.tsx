@@ -1,0 +1,243 @@
+// Copyright (c) 2024 The Bitcoin developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+import React, { useState, useEffect, useContext } from 'react';
+import {
+    Wrapper,
+    ContentDiv,
+    GameCardsContainer,
+    GameCard,
+} from 'components/Rewards/styled';
+import { WalletContext, isWalletContextLoaded } from 'wallet/context';
+import PrimaryButton from 'components/Common/Buttons';
+import { toast } from 'react-toastify';
+import { token as tokenConfig } from 'config/token';
+import { InlineLoader } from 'components/Common/Spinner';
+import { PageHeader } from 'components/Common/Atoms';
+import { RewardIcon } from 'components/Common/CustomIcons';
+import TokenIcon from 'components/Etokens/TokenIcon';
+import { EDJ_TOKEN_ID, BLITZ_CHIPS_TOKEN_ID } from 'constants/tokens';
+
+const Rewards = () => {
+    const ContextValue = useContext(WalletContext);
+    if (!isWalletContextLoaded(ContextValue)) {
+        // Confirm we have all context required to load the page
+        return null;
+    }
+    const { ecashWallet } = ContextValue;
+    if (!ecashWallet) {
+        return null;
+    }
+    const address = ecashWallet.address;
+    const ELAPSED_TIMER = { hours: '00', minutes: '00', seconds: '00' };
+    const [isEligible, setIsEligible] = useState<null | boolean>(null);
+    const [eligibleAgainTimestamp, setEligibleAgainTimestamp] = useState<
+        null | number
+    >(null);
+    const [timeRemainingMs, setTimeRemainingMs] = useState<null | number>(null);
+    const [countdownInterval, setCountdownInterval] =
+        useState<null | NodeJS.Timeout>(null);
+    // Set to true while we wait on a server response to prevent multiple claims
+    const [claimPending, setClaimPending] = useState<boolean>(false);
+
+    const getIsEligible = async (address: string) => {
+        let serverResponse;
+        try {
+            serverResponse = await (
+                await fetch(
+                    `${tokenConfig.rewardsServerBaseUrl}/is-eligible/${address}`,
+                )
+            ).json();
+            // Could help in debugging from user reports
+            console.info(serverResponse);
+            const { isEligible } = serverResponse;
+            setIsEligible(isEligible);
+            if (!isEligible) {
+                const { becomesEligible } = serverResponse;
+                setEligibleAgainTimestamp(becomesEligible);
+            }
+        } catch (err) {
+            const errorMsg = `Error determining token reward eligibility for address ${address}: Token rewards server is not responding.`;
+            console.error(errorMsg, err);
+            return toast.error(errorMsg);
+        }
+    };
+    const handleClaim = async () => {
+        setClaimPending(true);
+        // Hit token-server API for rewards
+        let claimResponse;
+        try {
+            claimResponse = await (
+                await fetch(
+                    `${tokenConfig.rewardsServerBaseUrl}/claim/${address}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    },
+                )
+            ).json();
+            setClaimPending(false);
+            // Could help in debugging from user reports
+            console.info(claimResponse);
+            if ('error' in claimResponse) {
+                if (
+                    claimResponse.error ===
+                    'Address is not yet eligible for token rewards'
+                ) {
+                    throw new Error(
+                        'Address is not eligible for token rewards. Try again 24 hours after your last claim.',
+                    );
+                }
+                if (
+                    'msg' in claimResponse &&
+                    claimResponse.msg === 'Error: Insufficient token utxos'
+                ) {
+                    throw new Error(
+                        'token-server is out of rewards to send. Contact admin.',
+                    );
+                }
+                throw new Error(`${claimResponse.error}:${claimResponse.msg}`);
+            }
+            toast.success('Rewards claimed!');
+
+            // Reset rewards eligibility
+            getIsEligible(address);
+        } catch (err) {
+            console.error(err);
+            toast.error(`${err}`);
+            setClaimPending(false);
+        }
+    };
+
+    const getParsedTimeRemaining = (timeRemainingMs: number) => {
+        if (timeRemainingMs === null) {
+            return ELAPSED_TIMER;
+        }
+        if (timeRemainingMs <= 1000) {
+            handleCountdownExpiration();
+            return ELAPSED_TIMER;
+        }
+        // Note: Token rewards are available every 24 hrs, so we do not need days
+        const hours = Math.floor(
+            (timeRemainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+        )
+            .toString()
+            .padStart(2, '0');
+        const minutes = Math.floor(
+            (timeRemainingMs % (1000 * 60 * 60)) / (1000 * 60),
+        )
+            .toString()
+            .padStart(2, '0');
+
+        const seconds = Math.floor((timeRemainingMs % (1000 * 60)) / 1000)
+            .toString()
+            .padStart(2, '0');
+
+        return { hours, minutes, seconds };
+    };
+
+    const handleCountdownExpiration = () => {
+        if (countdownInterval !== null) {
+            clearInterval(countdownInterval);
+            setCountdownInterval(null);
+        }
+        if (!isEligible) {
+            setIsEligible(true);
+        }
+    };
+
+    const { hours, minutes, seconds } =
+        timeRemainingMs !== null
+            ? getParsedTimeRemaining(timeRemainingMs)
+            : ELAPSED_TIMER;
+
+    useEffect(() => {
+        // execute when address variable changes
+        // i.e. on page load or when the user changes a wallet
+
+        // Set iseligible to false (so user cannot click button before server response
+        // when switching from an eligible wallet to an ineligible one)
+        setIsEligible(false);
+        if (typeof address === 'undefined') {
+            // Should never happen as Cashtab renders Onboarding screen if no wallet has been created
+            return;
+        }
+
+        // Hit token-server API to check eligibility of this address
+        getIsEligible(address);
+    }, [address]);
+
+    useEffect(() => {
+        if (eligibleAgainTimestamp === null) {
+            return;
+        }
+        const interval = setInterval(() => {
+            setTimeRemainingMs(
+                1000 * eligibleAgainTimestamp - new Date().getTime(),
+            );
+        }, 1000);
+
+        // Keep it in state so we can clear it when it gets to 0
+        setCountdownInterval(interval);
+
+        return () => clearInterval(interval);
+    }, [eligibleAgainTimestamp]);
+
+    return (
+        <Wrapper title="Rewards">
+            <PageHeader>
+                Rewards <RewardIcon />
+            </PageHeader>
+            {import.meta.env.VITE_TESTNET !== 'true' ? (
+                <>
+                    <PrimaryButton
+                        disabled={!isEligible || claimPending}
+                        onClick={handleClaim}
+                    >
+                        {isEligible === null || claimPending ? (
+                            <center>
+                                <InlineLoader />
+                            </center>
+                        ) : isEligible ? (
+                            'Claim Reward'
+                        ) : timeRemainingMs !== null ? (
+                            `Come back in ${hours}:${minutes}:${seconds}`
+                        ) : (
+                            <center>
+                                <InlineLoader />
+                            </center>
+                        )}
+                    </PrimaryButton>
+                </>
+            ) : (
+                <p>Token Rewards are not enabled for Testnet</p>
+            )}
+            <ContentDiv>
+                <h3>What can I do with Cachet?</h3>
+                <GameCardsContainer>
+                    <GameCard
+                        href="https://everydayjackpot.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <TokenIcon tokenId={EDJ_TOKEN_ID} size={64} />
+                        <span>Play for free at everydayjackpot.com</span>
+                    </GameCard>
+                    <GameCard
+                        href="https://blitzchips.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <TokenIcon tokenId={BLITZ_CHIPS_TOKEN_ID} size={64} />
+                        <span>Play for free at blitzchips.com</span>
+                    </GameCard>
+                </GameCardsContainer>
+            </ContentDiv>
+        </Wrapper>
+    );
+};
+
+export default Rewards;

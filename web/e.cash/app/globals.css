@@ -1,0 +1,311 @@
+@import "tailwindcss";
+
+:root {
+  --background: #090916;
+  --accentLight: #01a0e0;
+  --accentMedium: #0671c0;
+  --accentDark: #224da8;
+  --primaryText: #ffffff;
+  --secondaryText: #cccccc;
+  --borderLight: rgba(255, 255, 255, 0.1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-accentLight: var(--accentLight);
+  --color-accentMedium: var(--accentMedium);
+  --color-accentDark: var(--accentDark);
+  --color-primaryText: var(--primaryText);
+  --color-secondaryText: var(--secondaryText);
+  --color-borderLight: var(--borderLight);
+  --font-space-grotesk: "Space Grotesk", sans-serif;
+  --font-fira-code: "Fira Code", sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--primaryText);
+  font-family: var(--font-space-grotesk);
+}
+
+p {
+  color: var(--secondaryText);
+  font-weight: 300;
+}
+
+article p,
+article img,
+article h2,
+article h3,
+article li {
+  margin: 20px 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+article {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+article h3 {
+  font-weight: bold;
+  font-size: 30px;
+}
+
+article ul {
+  color: var(--secondaryText);
+  list-style: disc;
+  padding-left: 20px;
+  margin: 20px 0;
+}
+
+article a {
+  text-decoration: underline;
+  color: var(--accentMedium);
+  transition: all 0.2s ease-in-out;
+  &:hover {
+    color: var(--accentLight);
+  }
+}
+
+/* The tailwinds backdrop-blur class was acting up. Utilizing a custom class 
+here to get the effect */
+
+._blur {
+  backdrop-filter: saturate(140%) blur(20px);
+}
+
+._blur:hover {
+  backdrop-filter: saturate(180%) blur(40px);
+}
+
+.mask-gradient-fade-135 {
+  mask-image: linear-gradient(135deg, black 20%, transparent 100%);
+  -webkit-mask-image: linear-gradient(135deg, black 20%, transparent 100%);
+}
+
+.mask-gradient-fade-to-left {
+  mask-image: linear-gradient(to left, black 50%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to left, black 50%, transparent 100%);
+}
+
+.logo-mask-gradient {
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0),
+    rgba(0, 0, 0, 20),
+    rgba(0, 0, 0, 80),
+    rgba(0, 0, 0, 0)
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0),
+    rgba(0, 0, 0, 20),
+    rgba(0, 0, 0, 80),
+    rgba(0, 0, 0, 0)
+  );
+}
+
+.srcoll-animation {
+  animation: scroll-animation 50s infinite linear;
+  --gap: 44px;
+  @media (max-width: 1024px) {
+    --gap: 20px;
+  }
+}
+
+@keyframes scroll-animation {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-50% - var(--gap)));
+  }
+}
+
+.scroll-vertical-up {
+  animation: scroll-vertical-up 60s infinite linear;
+  --gap2: 180px;
+}
+
+.scroll-vertical-down {
+  animation: scroll-vertical-down 60s infinite linear;
+  --gap2: 180px;
+}
+
+@keyframes scroll-vertical-up {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(-100% - var(--gap2)));
+  }
+}
+
+@keyframes scroll-vertical-down {
+  from {
+    transform: translateY(calc(-100% - var(--gap2)));
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1024px) {
+  .scroll-vertical-up {
+    animation: scroll-vertical-up 40s infinite linear;
+  }
+
+  .scroll-vertical-down {
+    animation: scroll-vertical-down 40s infinite linear;
+  }
+
+  @keyframes scroll-vertical-up {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @keyframes scroll-vertical-down {
+    from {
+      transform: translateX(-50%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+}
+
+h2 {
+  font-size: 40px;
+  font-weight: bold;
+  line-height: 120%;
+  letter-spacing: -1.2px;
+}
+
+.gradient-text {
+  background: linear-gradient(
+    to right,
+    var(--accentLight) 0%,
+    var(--accentMedium) 80%,
+    var(--accentDark) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+.pink-gradient-text {
+  background: linear-gradient(141deg, #baecfd 4.22%, #ffaeee 95.78%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+.custom-box {
+  box-shadow: 0px 2px 0px 0px rgba(255, 255, 255, 0.1) inset;
+  transition: all 0.2s ease-out;
+}
+
+.custom-filter {
+  filter: invert(49%) sepia(42%) saturate(4625%) hue-rotate(168deg)
+    brightness(97%) contrast(99%);
+}
+
+.perspective-container {
+  perspective: 1000px;
+}
+
+.custom-skew {
+  transform: rotateY(10deg) translateZ(100px) skewY(-4deg) scale(0.9);
+  transform-style: preserve-3d;
+}
+
+@media (pointer: fine) {
+  .scrollx-container::-webkit-scrollbar {
+    height: 4px;
+    width: 1px;
+  }
+
+  .scrollx-container::-webkit-scrollbar-track {
+    background-color: rgba(0, 0, 0, 0.2);
+  }
+
+  .scrollx-container::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    background-color: var(--accentMedium);
+  }
+}
+
+.react-syntax-highlighter,
+.react-syntax-highlighter code,
+.react-syntax-highlighter span {
+  background: transparent !important;
+}
+.react-syntax-highlighter::-webkit-scrollbar {
+  height: 2px;
+  width: 2px;
+}
+
+.react-syntax-highlighter::-webkit-scrollbar-track {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.react-syntax-highlighter::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background-color: var(--borderLight);
+}
+
+.scrollx-fade::-webkit-scrollbar {
+  /* Safari & Chrome */
+  display: none;
+}
+
+.scrollx-fade {
+  /* Firefox */
+  scrollbar-width: none;
+  /* IE 10+ */
+  -ms-overflow-style: none;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 10%,
+    black 90%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 10%,
+    black 90%,
+    transparent 100%
+  );
+}
+
+@media (max-width: 1024px) {
+  h2 {
+    font-size: 26px;
+  }
+
+  .perspective-container {
+    perspective: none;
+  }
+
+  .custom-skew {
+    transform: none;
+  }
+}
+
+#quickstart-section {
+  scroll-margin-top: 120px;
+}

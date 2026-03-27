@@ -1,0 +1,36 @@
+# Copyright (c) 2022 The Bitcoin developers
+
+[workspace]
+
+members = [
+    "apps/proof-manager-cli",
+    "chronik/abc-rust-error",
+    "chronik/abc-rust-lint",
+    "chronik/bitcoinsuite-core",
+    "chronik/bitcoinsuite-slp",
+    "chronik/chronik-bridge",
+    "chronik/chronik-db",
+    "chronik/chronik-http",
+    "chronik/chronik-indexer",
+    "chronik/chronik-lib",
+    "chronik/chronik-plugin",
+    "chronik/chronik-plugin-common",
+    "chronik/chronik-plugin-impl",
+    "chronik/chronik-proto",
+    "chronik/chronik-util",
+    "modules/avalanche-lib-wasm",
+    "modules/bitcoinsuite-chronik-client",
+    "modules/ecash-lib-wasm",
+    "modules/ecash-secp256k1",
+    "modules/ecash-secp256k1/ecash-secp256k1-sys",
+    "web/explorer/explorer-exe",
+    "web/explorer/explorer-server",
+]
+
+[workspace.package]
+rust-version = "1.80.0"
+
+[profile.release-wasm]
+inherits = "release"
+lto = true
+opt-level = "z"

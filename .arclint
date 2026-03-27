@@ -1,0 +1,300 @@
+{
+    "linters": {
+        "generated": {
+            "type": "generated"
+        },
+        "clang-format": {
+            "type": "clang-format",
+            "version": ">=16.0",
+            "bin": [
+                "clang-format-16",
+                "clang-format"
+            ],
+            "include": "(^(src|chronik)/.*\\.(h|c|cpp|mm)$)",
+            "exclude": [
+                "(^src/(crc32c|secp256k1|leveldb)/)",
+                "(^src/bench/nanobench.h$)"
+            ]
+        },
+        "ruff-format": {
+            "type": "ruff-format",
+            "version": ">=0.14.0",
+            "include": [
+                "(\\.py$)",
+                "(^electrum/electrum-abc$)"
+            ],
+            "exclude": [
+                "(^contrib/apple-sdk-tools/)",
+                "(^electrum/electrumabc_gui/qt/icons.py)",
+                "(\\_pb2.py$)",
+                "(^src/crc32c/)"
+            ]
+        },
+        "ruff-check": {
+            "type": "ruff-check",
+            "version": ">=0.14.0",
+            "include": [
+                "(\\.py$)",
+                "(^electrum/electrum-abc$)"
+            ],
+            "exclude": [
+                "(^contrib/apple-sdk-tools/)",
+                "(^electrum/electrumabc_gui/qt/icons.py)",
+                "(\\_pb2.py$)"
+            ]
+        },
+        "lint-format-strings": {
+            "type": "lint-format-strings",
+            "include": "(^(src|chronik)/.*\\.(h|c|cpp)$)",
+            "exclude": [
+                "(^src/(crc32c|secp256k1|leveldb)/)",
+                "(^src/bench/nanobench.h$)",
+                "(^src/test/fuzz/strprintf.cpp$)"
+            ]
+        },
+        "check-doc": {
+            "type": "check-doc",
+            "include": "(^(src|chronik)/.*\\.(h|c|cpp)$)"
+        },
+        "lint-tests": {
+            "type": "lint-tests",
+            "include": "(^src/(seeder/|rpc/|wallet/)?test/.*\\.(cpp)$)"
+        },
+        "phpcs": {
+            "type": "phpcs",
+            "include": "(\\.php$)",
+            "exclude": [
+                "(^arcanist/__phutil_library_.+\\.php$)"
+            ],
+            "phpcs.standard": "arcanist/phpcs.xml"
+        },
+        "lint-locale-dependence": {
+            "type": "lint-locale-dependence",
+            "include": "(^(src|chronik)/.*\\.(h|cpp)$)",
+            "exclude": [
+                "(^src/(crc32c|crypto/ctaes/|leveldb/|secp256k1/|tinyformat.h))",
+                "(^src/bench/nanobench.h$)"
+            ]
+        },
+        "lint-cheader": {
+            "type": "lint-cheader",
+            "include": "(^(src|chronik)/.*\\.(h|cpp)$)",
+            "exclude": [
+                "(^src/(crc32c|crypto/ctaes|secp256k1|leveldb)/)",
+                "(^src/bench/nanobench.h$)"
+            ]
+        },
+        "spelling": {
+            "type": "spelling",
+            "exclude": [
+                "(^build-aux/m4/)",
+                "(^depends/)",
+                "(^doc/release-notes/)",
+                "(^src/(crc32c|qt/locale|secp256k1|leveldb)/)",
+                "(^test/lint/dictionary/)",
+                "(^web/e.cash/public/animations/)",
+                "(pnpm-lock.yaml)",
+                "(^electrum/electrumabc/wordlist/)",
+                "(^doc/standards/)",
+                "(^apps/marlin-wallet/i18n/.*\\.json$)"
+            ],
+            "spelling.dictionaries": [
+                "test/lint/dictionary/english.json"
+            ]
+        },
+        "lint-assert-with-side-effects": {
+            "type": "lint-assert-with-side-effects",
+            "include": "(^(src|chronik)/.*\\.(h|cpp)$)",
+            "exclude": [
+                "(^src/(crc32c|secp256k1|leveldb)/)",
+                "(^src/bench/nanobench.h$)"
+            ]
+        },
+        "lint-include-quotes": {
+            "type": "lint-include-quotes",
+            "include": "(^(src|chronik)/.*\\.(h|cpp)$)",
+            "exclude": [
+                "(^src/(crc32c|secp256k1|leveldb)/)",
+                "(^src/bench/nanobench.h$)"
+            ]
+        },
+        "lint-include-guard": {
+            "type": "lint-include-guard",
+            "include": "(^(src|chronik)/.*\\.h$)",
+            "exclude": [
+                "(^src/(crc32c|crypto/ctaes|secp256k1|leveldb)/)",
+                "(^src/bench/nanobench.h$)",
+                "(^src/tinyformat.h$)"
+            ]
+        },
+        "lint-include-source": {
+            "type": "lint-include-source",
+            "include": "(^(src|chronik)/.*\\.(h|c|cpp)$)",
+            "exclude": [
+                "(^src/(crc32c|secp256k1|leveldb)/)",
+                "(^src/bench/nanobench.h$)"
+            ]
+        },
+        "lint-std-chrono": {
+            "type": "lint-std-chrono",
+            "include": "(^(src|chronik)/.*\\.(h|cpp)$)"
+        },
+        "lint-stdint": {
+            "type": "lint-stdint",
+            "include": "(^(src|chronik)/.*\\.(h|c|cpp)$)",
+            "exclude": [
+                "(^src/(crc32c|secp256k1|leveldb)/)",
+                "(^src/bench/nanobench.h$)",
+                "(^src/compat/assumptions.h$)"
+            ]
+        },
+        "check-files": {
+            "type": "check-files"
+        },
+        "lint-boost-dependencies": {
+            "type": "lint-boost-dependencies",
+            "include": "(^(src|chronik)/.*\\.(h|cpp)$)"
+        },
+        "lint-python-encoding": {
+            "type": "lint-python-encoding",
+            "include": "(\\.py$)",
+            "exclude": [
+                "(^contrib/apple-sdk-tools/)",
+                "(^src/crc32c/)"
+            ]
+        },
+        "shellcheck": {
+            "type": "shellcheck",
+            "version": ">=0.7.0",
+            "flags": [
+                "--external-sources",
+                "--source-path=SCRIPTDIR"
+            ],
+            "include": "(\\.(sh|bash)$)",
+            "exclude": [
+                "(^src/(secp256k1)/)",
+                "(^electrum/)"
+            ]
+        },
+        "lint-shell-locale": {
+            "type": "lint-shell-locale",
+            "include": "(\\.(sh|bash)$)",
+            "exclude": [
+                "(^src/(secp256k1)/)",
+                "(^cmake/utils/log-and-print-on-failure.sh)"
+            ]
+        },
+        "lint-cpp-void-parameters": {
+            "type": "lint-cpp-void-parameters",
+            "include": "(^(src|chronik)/.*\\.(h|cpp)$)",
+            "exclude": [
+                "(^src/(crc32c|crypto/ctaes|secp256k1|leveldb)/)",
+                "(^src/bench/nanobench.h$)"
+            ]
+        },
+        "lint-logs": {
+            "type": "lint-logs",
+            "include": "(^(src|chronik)/.*\\.(h|cpp|rs)$)"
+        },
+        "lint-qt": {
+            "type": "lint-qt",
+            "include": "(^src/qt/.*\\.(h|cpp)$)",
+            "exclude": [
+                "(^src/qt/(locale|forms|res)/)"
+            ]
+        },
+        "lint-doxygen": {
+            "type": "lint-doxygen",
+            "include": "(^(src|chronik)/.*\\.(h|c|cpp)$)",
+            "exclude": [
+                "(^src/(crc32c|crypto/ctaes|secp256k1|leveldb)/)",
+                "(^src/bench/nanobench.h$)"
+            ]
+        },
+        "lint-whitespace": {
+            "type": "lint-whitespace",
+            "include": "(\\.(ac|am|cmake|conf|in|include|json|m4|md|openrc|php|pl|rs|sh|txt|yml)$)",
+            "exclude": [
+                "(^src/(crc32c|secp256k1|leveldb)/)",
+                "(^src/bench/nanobench.h$)",
+                "(^doc/standards/)"
+            ]
+        },
+        "yamllint": {
+            "type": "yamllint",
+            "include": "(\\.(yml|yaml)$)",
+            "exclude": "(^src/(crc32c|secp256k1|leveldb)/)"
+        },
+        "lint-check-nonfatal": {
+            "type": "lint-check-nonfatal",
+            "include": [
+                "(^src/rpc/.*\\.(h|c|cpp)$)",
+                "(^src/wallet/rpc*.*\\.(h|c|cpp)$)"
+            ],
+            "exclude": "(^src/rpc/server.cpp)"
+        },
+        "lint-markdown": {
+            "type": "lint-markdown",
+            "include": [
+                "(\\.md$)"
+            ],
+            "exclude": [
+                "(^web/chronik.e.cash/)",
+                "(^doc/standards/)"
+            ]
+        },
+        "lint-python-mypy": {
+            "type": "lint-python-mypy",
+            "version": ">=0.910",
+            "include": "(\\.py$)",
+            "exclude": [
+                "(^contrib/apple-sdk-tools/)",
+                "(^contrib/macdeploy/)",
+                "(^electrum/)"
+            ],
+            "flags": [
+                "--ignore-missing-imports",
+                "--install-types",
+                "--non-interactive"
+            ]
+        },
+        "prettier": {
+            "type": "prettier",
+            "version": ">=2.6.0",
+            "include": [
+                "(^apps/.*\\.(css|html|js|json|jsx|md|scss|ts|tsx)$)",
+                "(^doc/standards/.*\\.(css|html|js|json|jsx|scss|ts|tsx)$)",
+                "(^cashtab/.*\\.(css|html|js|json|jsx|md|scss|ts|tsx)$)",
+                "(^modules/.*\\.(css|html|js|json|jsx|md|scss|ts|tsx)$)",
+                "(^web/.*\\.(css|html|js|json|jsx|md|scss|ts|tsx)$)"
+            ],
+            "exclude": [
+                "(^web/.*/translations/.*\\.json$)",
+                "(^web/e.cash/public/animations/)",
+                "(^web/explorer/explorer-server/templates/)"
+            ]
+        },
+        "rustfmt": {
+            "type": "rustfmt",
+            "version": ">=1.5.1",
+            "include": "(\\.rs$)"
+        },
+        "djlint": {
+            "type": "djlint",
+            "version": ">=1.34.1",
+            "include": "(^web/explorer/explorer-server/templates/)"
+        },
+        "eslint": {
+            "type": "eslint",
+            "version": ">=9.0.0",
+            "include": [
+                "(.*\\.(js|jsx|ts|tsx|cjs|mjs)$)"
+            ],
+            "exclude": [
+                "(^web/explorer/)",
+                "(^src/)",
+                "(next-env.d.ts)"
+            ]
+        }
+    }
+}
