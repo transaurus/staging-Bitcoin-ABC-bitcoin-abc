@@ -1,0 +1,46 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.tutorialSidebar.category.Chronik - Setup Instance": {
+    "message": "Chronik - Setup Instance",
+    "description": "The label for category 'Chronik - Setup Instance' in sidebar 'tutorialSidebar'"
+  },
+  "sidebar.tutorialSidebar.category.Chronik - Setup Instance.link.generated-index.description": {
+    "message": "How to setup a Chronik instance. Note: This requires a decent server and may take days to sync. Recommended for advanced users.",
+    "description": "The generated-index page description for category 'Chronik - Setup Instance' in sidebar 'tutorialSidebar'"
+  },
+  "sidebar.tutorialSidebar.category.Chronik - JS/TS Client": {
+    "message": "Chronik - JS/TS Client",
+    "description": "The label for category 'Chronik - JS/TS Client' in sidebar 'tutorialSidebar'"
+  },
+  "sidebar.tutorialSidebar.category.Chronik Indexer Client": {
+    "message": "Chronik Indexer Client",
+    "description": "The label for category 'Chronik Indexer Client' in sidebar 'tutorialSidebar'"
+  },
+  "sidebar.tutorialSidebar.category.classes": {
+    "message": "classes",
+    "description": "The label for category 'classes' in sidebar 'tutorialSidebar'"
+  },
+  "sidebar.tutorialSidebar.category.enumerations": {
+    "message": "enumerations",
+    "description": "The label for category 'enumerations' in sidebar 'tutorialSidebar'"
+  },
+  "sidebar.tutorialSidebar.category.functions": {
+    "message": "functions",
+    "description": "The label for category 'functions' in sidebar 'tutorialSidebar'"
+  },
+  "sidebar.tutorialSidebar.category.interfaces": {
+    "message": "interfaces",
+    "description": "The label for category 'interfaces' in sidebar 'tutorialSidebar'"
+  },
+  "sidebar.tutorialSidebar.category.type-aliases": {
+    "message": "type-aliases",
+    "description": "The label for category 'type-aliases' in sidebar 'tutorialSidebar'"
+  },
+  "sidebar.tutorialSidebar.category.variables": {
+    "message": "variables",
+    "description": "The label for category 'variables' in sidebar 'tutorialSidebar'"
+  }
+}
