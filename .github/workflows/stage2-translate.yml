@@ -19,14 +19,6 @@ jobs:
         with:
           ref: 'main'
 
-      - name: 'Setup Node.js'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: 'Enable Corepack'
-        run: corepack enable
-
       - name: 'Read meta.json'
         id: meta
         run: |
@@ -34,7 +26,16 @@ jobs:
           echo "buildOutput=$(jq -r '.buildOutput // "build"' .github/scripts/meta.json)" >> $GITHUB_OUTPUT
           echo "docusaurusRoot=$(jq -r '.docusaurusRoot // "."' .github/scripts/meta.json)" >> $GITHUB_OUTPUT
           echo "configFile=$(jq -r '.configFile // ""' .github/scripts/meta.json)" >> $GITHUB_OUTPUT
+          echo "nodeVersion=$(jq -r '.nodeVersion // "22"' .github/scripts/meta.json)" >> $GITHUB_OUTPUT
           cat .github/scripts/meta.json
+
+      - name: 'Setup Node.js'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.meta.outputs.nodeVersion }}
+
+      - name: 'Enable Corepack'
+        run: corepack enable
 
       - name: 'Add i18n locale config to docusaurus.config'
         run: |
@@ -75,10 +76,11 @@ jobs:
             }else{
               const ls=locs.map(l=>"\""+l+"\"").join(", ");
               const ic="\n  i18n: {\n    defaultLocale: \"en\",\n    locales: [\"en\", "+ls+"],\n  },";
-              const ps=[/(module\.exports\s*=\s*\{)/,/(export\s+default\s*\{)/,/(const\s+config\s*[:=]\s*\{)/];
+              const ps=[/(module\.exports\s*=\s*\{)/,/(export\s+default\s+\{)/,/(export\s+default\s+satisfies\s+\w+\s*\{)/,/(const\s+\w+\s*[:=]\s*(?:\w+\s*)?[:=]?\s*\{)/];
               let done=false;
               for(const p of ps){const m=c.match(p);if(m){c=c.slice(0,m.index+m[0].length)+ic+c.slice(m.index+m[0].length);done=true;console.log("Injected after:",m[0]);break}}
-              if(!done){const f=c.indexOf("{");if(f>=0)c=c.slice(0,f+1)+ic+c.slice(f+1)}
+              if(!done){const lines=c.split("\n");for(let i=0;i<lines.length;i++){if(lines[i].includes("Config")&&lines[i].includes("{")){c=c.slice(0,c.indexOf(lines[i])+lines[i].indexOf("{")+1)+ic+c.slice(c.indexOf(lines[i])+lines[i].indexOf("{")+1);done=true;console.log("Injected at Config line:",i);break}}}
+              if(!done){const f=c.indexOf("{");if(f>=0){c=c.slice(0,f+1)+ic+c.slice(f+1);console.log("Fallback: injected at first {")}}
             }
             fs.writeFileSync(cf,c);
           '
@@ -157,12 +159,21 @@ jobs:
           DOCUSAURUS_IGNORE_SSG_WARNINGS: 'true'
         run: |
           DOC_ROOT="${{ steps.meta.outputs.docusaurusRoot }}"
+          BUILD_OUTPUT="${{ steps.meta.outputs.buildOutput }}"
+          BUILD_DIR="${DOC_ROOT}/${BUILD_OUTPUT}"
+          [ "$DOC_ROOT" = "." ] && BUILD_DIR="$BUILD_OUTPUT"
+
+          # Backup existing build, then clean so Docusaurus rebuilds all locales
+          if [ -d "$BUILD_DIR" ]; then
+            mv "$BUILD_DIR" "${BUILD_DIR}.bak"
+            echo "Backed up $BUILD_DIR → ${BUILD_DIR}.bak"
+          fi
 
           if [ -f ".github/scripts/rebuild.sh" ]; then
             chmod +x .github/scripts/rebuild.sh
-            # cd to docusaurusRoot so rebuild.sh runs in the right directory
             cd "$DOC_ROOT"
-            bash "$OLDPWD/.github/scripts/rebuild.sh"
+            bash "$OLDPWD/.github/scripts/rebuild.sh" || true
+            cd "$OLDPWD"
           else
             echo "No rebuild.sh found, using meta.json build command"
             cd "$DOC_ROOT"
@@ -178,6 +189,18 @@ jobs:
 
             # Build
             ${{ steps.meta.outputs.buildCommand }}
+          fi
+
+          # If rebuild failed (no build output), restore backup
+          if [ -d "${BUILD_DIR}.bak" ]; then
+            if [ ! -d "$BUILD_DIR" ] || [ -z "$(find "$BUILD_DIR" -name 'index.html' 2>/dev/null | head -1)" ]; then
+              echo "Rebuild produced no output, restoring backup"
+              rm -rf "$BUILD_DIR"
+              mv "${BUILD_DIR}.bak" "$BUILD_DIR"
+            else
+              echo "Rebuild succeeded, removing backup"
+              rm -rf "${BUILD_DIR}.bak"
+            fi
           fi
 
       - name: 'Verify build output'
