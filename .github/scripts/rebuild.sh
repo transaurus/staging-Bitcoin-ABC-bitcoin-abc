@@ -47,6 +47,11 @@ if [ -d "$ORIG_DIR/i18n" ]; then
     echo "[INFO] Copying translated i18n content..."
     cp -r "$ORIG_DIR/i18n" "$TEMP_REPO/web/chronik.e.cash/i18n"
 fi
+# --- Copy i18n-modified docusaurus config from staging ---
+if [ -f "$ORIG_DIR/docusaurus.config.js" ]; then
+    cp "$ORIG_DIR/docusaurus.config.js" "$TEMP_REPO/web/chronik.e.cash/docusaurus.config.js"
+    echo "[INFO] Copied modified docusaurus.config.js with zh-Hans locale"
+fi
 
 # --- Install dependencies from repo root ---
 cd "$TEMP_REPO"
